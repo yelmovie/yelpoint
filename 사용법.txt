@@ -1,0 +1,142 @@
+YelPoint 1.0.0
+강조 · 돋보기 · 펜 · 타이머 · 캡처 · 스팟 · 폰 · QR · 칠판으로 쓰는 강의 도구
+
+[맥]
+ZIP을 풀고 YelPoint.app을 응용 프로그램 폴더로 옮긴 뒤 더블클릭해 주세요.
+Dock 아이콘 우클릭 → 옵션 → Dock에 유지로 고정할 수 있어요.
+macOS 14 이상, Apple Silicon과 Intel 맥을 지원해요.
+
+돋보기·캡처·녹화를 처음 사용할 때:
+안내창의 ‘설정 열기’를 누르고 YelPoint 스위치를 켠 다음 ‘앱 다시 시작’을 눌러 주세요.
+단축키 표시 옵션은 ‘손쉬운 사용’ 권한도 허용한 뒤 켜 주세요.
+
+[윈도우]
+YelPoint-Setup.exe 실행 → 설치 → 끝. 관리자 권한 없이 내 계정의 AppData\Local\YelPoint에 설치돼요.
+시작 메뉴(원하면 바탕 화면)에 바로 가기가 생겨요. USB에서 실행하면 그 드라이브를 기본 위치로 골라요.
+Windows 10/11 64비트(x64), .NET Framework 4.8 환경용이에요.
+
+무설치로 쓰려면 YelPoint.exe와 YelPoint.exe.config를 같은 폴더에 두고 실행해 주세요.
+설치 프로그램은 선택한 폴더에 파일을 복사하고 기존 data 설정은 그대로 둬요.
+
+[사용하기]
+설정의 ‘사용법’을 누르면 기능별로 움직이는 영상이 열려요. 먼저 영상을 봐 주세요.
+강조: 노란 커서 링. 왼쪽 클릭은 주황, 오른쪽 클릭은 파란색으로 표시해요.
+돋보기: 커서 부근을 실시간으로 확대해요. 켜면 뜨는 패널에서 1.5~5배를 골라 주세요.
+펜: 자유 필기. 색 3개, 원형 색상환, 굵기 슬라이더(1~30), 되돌리기, 모두 지우기(지운 뒤에도 되돌리기로 되살릴 수 있어요).
+크기 조절: Control(윈도우는 Ctrl)을 누른 채 스크롤하면 위로 크게, 아래로 작게 바뀌어요.
+  스팟이 있으면 스팟, 없으면 주변 어둡게 원, 둘 다 아니면 포인터 크기가 바뀌어요.
+타이머: 1~60분 카운트다운. 분을 직접 입력하거나 −/+, 5·10·30·60으로 맞추고 ▶로 시작해요.
+  시계는 끌어서 옮기고 오른쪽 아래 모서리를 끌어 크기를 바꿔요. 끝나면 ‘시간 끝!’이 5초 동안 보이고 '펑' 소리와 함께 사라져요.
+캡처: 버튼을 누르면 바로 영역 지정이 시작돼요. 끌어서 고르면 그 자리에 그림이 붙고 클립보드에 복사돼요(⌘V·Ctrl+V로 바로 붙여넣기). 그림 바로 아래 버튼으로 저장(PNG) · 글자 · 붙여넣기 · 닫기를 해요. 펜이 켜져서 그 위에 바로 필기할 수 있고, 필기한 내용도 자동으로 복사돼요.
+  드래그 없이 한 번 클릭하면 메뉴가 떠요: 다시 캡처 · 그림 붙이기 · PNG 저장 · 화면 녹화(마이크 소리 포함, 도구막대가 있는 화면) · 내 영상.
+스팟: 사각·원·타원을 고르고 드래그하면 그 자리에 빨간 선이 남아요. 빨간 선을 끌어 크기를 바꾸고 안쪽을 끌어 옮겨요.
+  바깥을 클릭하거나 Esc를 누르면 편집이 끝나요. 스팟은 남고 아래 앱을 조작할 수 있어요. 끄기로 없애요.
+붙인 그림은 끌어서 옮기고 ✕나 아래 ‘닫기’로 닫아요. 펜이 켜져 있을 때는 왼쪽 위 손잡이를 끌어 옮겨요.
+폰: 안드로이드 폰·태블릿을 USB 케이블로 꽂으면 그 화면을 띄워요. ‘카메라’를 누르면 폰 카메라가 실물화상기가 돼요.
+  회전·조명(플래시)·멈춤(지금 장면을 고정하고 바로 필기)·녹화(폰 화면만 MP4로 저장, 안드로이드 11 이상은 폰 소리도)·끄기. 처음 한 번은 폰에서 ‘USB 디버깅’을 켜고 ‘허용’을 눌러 주세요(패널의 ? 참고).
+  한 번 연결한 뒤에는 꽂기만 해도 바로 떠요(패널의 ‘꽂으면 바로 띄우기’가 초록색으로 켜져 있을 때). 개발자 옵션과 USB 디버깅은 켜 둔 채로 두세요. 끄면 바로 연결이 끊겨요. 맥과 윈도우 모두 돼요. 카메라는 안드로이드 12 이상에서 돼요. 아이폰·아이패드는 지원하지 않아요.
+  충전만 되는 케이블이나 허브·HDMI 어댑터를 거치면 연결되지 않을 수 있어요. 컴퓨터에 바로 꽂아 주세요.
+  전에는 됐는데 다시 안 되면: 폰 잠금을 풀고 개발자 옵션 → USB 디버깅이 켜져 있는지 봐 주세요. 꺼져 있으면 다시 켜고 케이블을 다시 꽂아 주세요.
+  폰 화면 창의 닫기 버튼이나 ‘끄기’로 닫으면 다시 꽂을 때까지 열리지 않아요.
+  영상 가져오기: 폰 갤러리의 영상 목록이 떠요. 고르고 ‘가져와서 자막 넣기’를 누르면 원본 그대로 컴퓨터로 복사되고 바로 자막 창이 열려요.
+  폰 녹화 파일은 맥에 설치했다면 동영상/YelPoint, 그 밖에는 앱 옆 data/captures에 저장돼요. 녹화가 끝나면 저장 위치와 ‘폴더에서 보기’가 떠요.
+  ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  ★ 꼭 읽어 주세요: 폰 연결·실물화상기 설정 방법은 폰마다 달라요.
+     잘 안 되면 ‘내 폰 이름 + USB 디버깅’으로 검색해 보세요.
+     예) ‘갤럭시 Z폴드5 USB 디버깅’, ‘갤럭시 S24 USB 디버깅’
+     사진과 함께 보는 연결 방법(옐샘 블로그):
+     https://blog.naver.com/yelsam_lab/224469355120
+     패널의 ? → ‘연결 방법 보기’를 눌러도 열려요.
+  ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+내 영상: 캡처 메뉴의 ‘내 영상’을 누르면 녹화한 영상과 폰에서 가져온 영상이 그림과 함께 최신순으로 떠요. 고르고 ‘보기 · 자막 넣기’를 누르면 그 화면에서 바로 보면서 자막을 넣어요.
+자막: 녹화를 마치면 ‘자막을 넣을까요?’가 떠요.
+  맥: 영상을 틀어 두고 영상 바로 아래 칸에 자막을 쓰고 Enter를 누르면 그 장면에 들어가요. 쓰기 시작하면 영상이 잠깐 멈추고 Enter를 누르면 다시 재생돼요.
+  영상 위에는 저장될 자막이 그대로 보여요. 자막을 끌어서 옮기거나 영상을 클릭하면 그 자리로 가고, 오른쪽 아래 모서리를 끌면 크기가 바뀌어요(다음 영상에도 기억해요). 표에서 줄을 누르면 그 장면으로 가서 위 칸에서 고칠 수 있어요(칸을 비우고 Enter는 지우기, Esc는 그대로 두기).
+  ‘말소리로 자동 만들기’로 초안을 만든 뒤 고쳐도 돼요(처음에 음성 인식 권한 허용). 다 되면 ‘자막 넣은 영상 저장’ → 영상이름.subtitled.mp4와 .srt.
+  윈도우: 영상 바로 아래 칸에 자막을 쓰고 Enter를 누르면 그 장면에 들어가요. 쓰기 시작하면 영상이 잠깐 멈추고, Enter를 누르면 다시 재생돼요. ▶/⏸와 ‘3초 뒤로’로 다시 들어 볼 수 있어요.
+  영상 위에 지금 자막이 보여요. 표에서 줄을 누르면 그 장면으로 가서 위 칸에서 고칠 수 있어요(칸을 비우고 Enter는 지우기, Esc는 그대로 두기).
+  다 되면 ‘SRT 저장’을 눌러 주세요. 같은 이름의 .srt는 대부분의 플레이어와 유튜브가 자막으로 보여 줘요. 윈도우에서는 영상 안에 자막을 직접 넣지는 않아요.
+  자막 글꼴은 나눔고딕 Bold(SIL OFL 1.1)예요.
+QR: 주소를 붙여넣고 Enter를 누르면 화면 가운데 큰 QR 코드와 주소가 떠요. 끌어서 옮기고 ✕나 Esc로 닫아요.
+칠판: 초록 칠판 큰 창이 열려요. 분필 색을 고르고 그리면 분필 질감으로 써져요.
+  글씨를 누르고 칠판을 클릭해 한글·영어를 입력하면 분필 글씨로 남아요.
+  글꼴 버튼을 누를 때마다 손글씨 → 고딕 → 명조로 바뀌어요(모두 무료 글꼴, 한글·영어 지원).
+  굵게/가늘게 · 지우개 · 되돌리기(⌘Z/Ctrl+Z) · 모두 지우기 · PNG 저장 · 닫기(Esc).
+  ‘PNG 저장’을 누르면 버튼을 뺀 칠판 그림이 캡처 폴더에 PNG로 저장돼요.
+저장과 녹화 파일은 앱 옆 data/captures에 있어요. 맥에 설치했다면 동영상/YelPoint 폴더예요. 버튼을 눌렀을 때만 저장해요.
+
+도구막대는 버튼을 잡고 끌어도 어디든 옮겨져요. 놓은 자리를 기억해요.
+끌다가 왼쪽·오른쪽 끝에 닿으면 바로 세로로 서고, 안쪽으로 끌어내면 바로 가로가 돼요.
+오른쪽 끝 눈 버튼이나 0번 단축키로 숨기면 작은 동그라미만 남아요. 동그라미를 누르면 다시 보여요.
+전원 버튼은 앱을 꺼요. 화면에 필기나 붙인 이미지가 있으면 끄기 전에 한 번 물어봐요.
+Esc: 펜·돋보기·캡처 영역 지정·스팟 편집을 끝내고 조작 모드로 돌아와요. 필기는 남아 있어요.
+  패널만 열려 있을 때는 Esc가 수업 앱으로 그대로 가요(슬라이드쇼 끝내기 등).
+필기 중 맥은 Option, 윈도우는 Alt를 누르는 동안 클릭·스크롤이 아래 화면으로 통과해요.
+
+[단축키]
+맥 ⌃ = Control, ⌥ = Option / 윈도우는 Ctrl, Alt
+  맥 ⌃⌥1~6 · 윈도우 Ctrl+Alt+1~6   1 강조 · 2 돋보기 · 3 펜 · 4 타이머 · 5 캡처 · 6 스팟
+  맥 ⌃⌥0 · 윈도우 Ctrl+Alt+0        도구막대 숨기기 · 다시 보이기
+  Esc                               쓰던 도구 끄고 평소 마우스로
+  맥 Option · 윈도우 Alt 누른 채     필기 중에 아래 화면 클릭
+  Control(Ctrl) + 스크롤            위로 크게 · 아래로 작게 (강조 원 · 스팟 크기)
+다른 앱과 단축키가 겹치면 도구막대 버튼으로 사용할 수 있어요.
+
+[간단 설정]
+단축키 표시: Ctrl+C나 ⌘C처럼 보조키가 있는 조합만 잠깐 표시해요.
+필기 자동 지우기: 옵션을 켠 뒤 선을 다 그린 시점부터 4초 뒤에 지워요.
+주변 어둡게: 커서 주변만 밝게 두어 시선을 모아요.
+설정은 앱 옆 data/settings.json에 저장해요. 키 입력 기록은 저장하지 않아요.
+
+[녹화 · 종료 · 제거]
+다른 녹화 프로그램으로 녹화할 때는 창 하나가 아니라 전체 화면을 녹화해야 필기가 같이 찍혀요.
+도구막대 맨 끝의 전원 버튼(⏻)으로 종료해요. 필기·붙인 그림이 있거나 녹화·폰 화면이 켜져 있으면 한 번 물어봐요.
+맥 제거: 앱을 종료하고 YelPoint.app을 휴지통으로 옮겨 주세요.
+윈도우 제거: 설정 → 앱 → 설치된 앱 → YelPoint → 제거. data 폴더(설정·캡처·녹화)는 남겨 둬요.
+
+[만든 사람]
+도구막대 전원 버튼 아래, 설정 창, 사용법 창의 ‘© yelsam.lab’을 누르면 작은 메뉴가 떠요.
+  옐샘 블로그 둘러보기: https://blog.naver.com/profile/intro.naver?blogId=yelsam_lab
+  옐샘에게 제안하기: bongbiyobi@gmail.com으로 보내는 메일 창이 열려요. 메일 앱이 없으면 주소를 복사해 드려요.
+
+[확인한 범위]
+맥: 실행·종료, 모델·자체 UI 검사(한국어·영어), Universal 빌드와 코드 서명 검사를 통과했어요.
+윈도우: 컴파일(경고 0), 설치 파일 구성, 설정 저장·복구와 모델 검사를 통과했어요. 실제 Windows PC에서는 아직 실행해 보지 못했어요.
+
+언어: 간단 설정의 언어 / Language에서 한국어와 English를 고를 수 있어요.
+
+[공식 배포처와 이용 조건]
+YelPoint는 옐샘 블로그(https://blog.naver.com/yelsam_lab)에 안내된 곳에서만 받아 주세요.
+다른 사이트·카페·메신저로 받은 파일은 누군가 바꿨을 수 있으니 실행하지 마세요.
+받은 파일이 진짜인지 확인하려면 공식 배포처에 적힌 SHA-256 값과 비교해 주세요.
+  맥: 터미널에서 shasum -a 256 받은파일
+  윈도우: PowerShell에서 Get-FileHash 받은파일
+개인·학교 수업과 강의에는 무료로 쓸 수 있어요. 판매, 유료 서비스, 상업적 이용은 할 수 없어요.
+수정·재배포와 YelPoint 이름·아이콘 사용도 할 수 없어요. 다른 분께는 공식 배포처 주소를 알려 주세요.
+자세한 내용은 LICENSE.txt에 있어요.
+
+[English]
+YelPoint is a small screen tool for lessons and recorded explanations.
+Open Settings on the toolbar and choose English under Language. The app restarts in English.
+Press How to Use in Settings for a one-minute video with section skipping.
+Highlight, Zoom (1.5x to 5x), Pen, Timer (1 to 60 minutes), Capture, Spot, Phone.
+Capture: drag an area and it is copied right away (⌘V or Ctrl+V pastes it). Buttons under the picture save, add text, paste or close it. My Videos in the capture menu lists your recordings and phone videos; pick one to watch it and type subtitles under the video. On a Mac, drag the subtitle to move it and its corner to resize it.
+Phone: plug in an Android phone or tablet over USB to show its screen, or press Camera to use it as a document camera.
+Subtitles: after a recording, add subtitles (Mac: draft from speech, then burn them into a new MP4; Windows: save an SRT). QR: paste an address and press Enter to show a big QR code. Board: a big chalkboard to draw on and write Korean or English in chalk, in handwriting, sans or serif letters; Save PNG keeps the board without its buttons.
+Turn on USB debugging once on the phone (press ? in the panel) and leave developer options on. Camera needs Android 12 or later. Record saves just the phone screen as an MP4.
+★ Every phone sets this up differently. If it does not work, search for your phone's name plus "USB debugging".
+Photo guide (Korean): https://blog.naver.com/yelsam_lab/224469355120 . Phone recordings go to Movies/YelPoint (installed Mac) or data/captures; the end-of-recording box shows where and offers Show in Folder.
+Drag the toolbar anywhere. At a left or right edge it stands up. The eye button hides it.
+Mac shortcuts: Control+Option+1 Highlight / 2 Zoom / 3 Pen / 4 Timer / 5 Capture / 6 Spot / 0 Hide bar
+Windows shortcuts: Ctrl+Alt+1 to 6, and 0 to hide the bar.
+Esc returns to normal use. Your ink stays.
+Click "© yelsam.lab" under the power button to visit Yelsam's blog or send a suggestion.
+Download YelPoint only from the places listed on Yelsam's blog (https://blog.naver.com/yelsam_lab). Files from anywhere else may have been altered, so do not run them. Compare the SHA-256 value listed there (Mac: shasum -a 256 file, Windows PowerShell: Get-FileHash file).
+Free for personal, school and lecture use. Commercial use, modification, redistribution and use of the YelPoint name or icon are not allowed. See LICENSE.txt.
+
+사용법 영상 글꼴 / Video font: Nanum Gothic (NAVER, SIL Open Font License 1.1)
+폰 연결 / Phone: scrcpy 5.0.1 (Apache 2.0) · 칠판 글씨 / Board fonts: Nanum Pen Script, Nanum Gothic Bold, Nanum Myeongjo Bold · 자막 / Subtitles: Nanum Gothic Bold (SIL OFL 1.1) — THIRD-PARTY-NOTICES.txt
+
+© yelsam.lab
+블로그: https://blog.naver.com/profile/intro.naver?blogId=yelsam_lab
+제안: bongbiyobi@gmail.com

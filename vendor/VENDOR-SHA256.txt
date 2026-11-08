@@ -1,0 +1,28 @@
+# Official-release SHA-256 of every bundled third-party file. Checked by scripts/build-*.sh before copying.
+# scrcpy 5.0.1: archives match https://github.com/Genymobile/scrcpy/releases/download/v5.0.1/SHA256SUMS.txt; extracted files match those archives (checked 2026-11-09).
+# Fonts: match https://github.com/google/fonts/tree/main/ofl (checked 2026-11-09).
+b12a2c4ee8be317422451fc7dcf8ee20a71b5ea7ef9ad73ddd825a25316227a5  scrcpy-5.0.1/downloads/scrcpy-win64-v5.0.1.zip
+33611e51977a8289e2e124b220f727895181ef2eb9060e0987a4dc2db9cf0d6b  scrcpy-5.0.1/downloads/scrcpy-macos-aarch64-v5.0.1.tar.gz
+31a5467a9e907f162b093267cbbab1276b15c6e709c2ea8159566a8d165beb50  scrcpy-5.0.1/downloads/scrcpy-macos-x86_64-v5.0.1.tar.gz
+18702c2737f3490184b95d5a9e9e6455c87a802d5e57983b9102939b319f4f26  scrcpy-5.0.1/mac/scrcpy
+1811e253b21b12cbfda7201ebaf86c10e7ddcb5c606a7a81f7c82b4c429c2d3b  scrcpy-5.0.1/mac/adb
+764eb6f79811d5211fe9df341120882ba9994c7a61b897d7bf3fb662e53bc536  scrcpy-5.0.1/mac/scrcpy-server
+01c12035bf35af37241298dc7ad538eb2a07e5c940437bc6876feeaa9d1951d0  scrcpy-5.0.1/mac/LICENSE
+64bcee493d9243dab1e84093928014348738e31f3225e67558210e6b6cfb9cd6  scrcpy-5.0.1/win64/scrcpy.exe
+764eb6f79811d5211fe9df341120882ba9994c7a61b897d7bf3fb662e53bc536  scrcpy-5.0.1/win64/scrcpy-server
+b4a6b455702684652cccf7b46258b29e653538904359a58fd4931cf3ef286b3f  scrcpy-5.0.1/win64/adb.exe
+c1d653030b4bde65d3e07e4d0b0979e17be56df1436cdd15528630f27808050d  scrcpy-5.0.1/win64/AdbWinApi.dll
+0710e894d9b40f71a670c13c694079d564c92c1279da382cfe4850983aaebe1b  scrcpy-5.0.1/win64/AdbWinUsbApi.dll
+288aaf5b4f246bd84c276351867e3132cfcd9b0a9d25fb679c8d94b30cdf333e  scrcpy-5.0.1/win64/SDL3.dll
+159928e3bbe7beaca046ccf831fdf44f1e5559c0e63417f007889a6bb2c5de88  scrcpy-5.0.1/win64/avcodec-63.dll
+4dbb0c1c8262f7ae45e7edc4866e26f53b358bf4fc7a0b971f15d1f2d7baf22f  scrcpy-5.0.1/win64/avformat-63.dll
+52eb504ced0ea6d9e936d348df51c8aaeec1cae8fa4a7dba339fea87d7cce725  scrcpy-5.0.1/win64/avutil-61.dll
+7b57e891bf09c43422d79f98cf9d1830c4b1d48a251423ce5fb8c2048eb8fc1e  scrcpy-5.0.1/win64/swresample-7.dll
+0c82e969c046d816507a2fe1e57253a334cb203bd6ea223194ad17c007154f32  scrcpy-5.0.1/win64/libusb-1.0.dll
+01c12035bf35af37241298dc7ad538eb2a07e5c940437bc6876feeaa9d1951d0  scrcpy-5.0.1/win64/LICENSE.txt
+f96298f9fb18e364d2370f4c3ce948ac67a2b61af992d7234bc15c42b033c674  fonts/NanumGothic-Bold.ttf
+bc9ed8e60d93fe6db054b8fb988481b625f2eef8cb2317ad0e9834681b8fe3f3  fonts/NanumMyeongjo-Bold.ttf
+6f0d1ab29c7894010dc88831fb7a0a51edb79136e450344183de5b1a8b52bd43  fonts/NanumPenScript-Regular.ttf
+eeacf16032901d0ed0456876ec77b8f0fda6b3fecec7d972f8543eb602e6c30f  fonts/NanumGothic-OFL.txt
+8eb1c1019fe7fe6d0b6e7d7bbbba1d9cbdd969d8c5f26455708f6cfb8a77284c  fonts/NanumMyeongjo-OFL.txt
+eeacf16032901d0ed0456876ec77b8f0fda6b3fecec7d972f8543eb602e6c30f  fonts/NanumPenScript-OFL.txt

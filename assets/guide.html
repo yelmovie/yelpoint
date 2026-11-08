@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>YelPoint</title>
+<style>
+  :root { --dock: #202b25; --lime: #d6f0ab; --paper: #f7f7f2; --line: rgba(255,255,255,.14); --fast: 150ms; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: #141b17; color: var(--paper); font-family: "Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif;
+         display: grid; grid-template-columns: 190px minmax(0, 1fr); }
+  nav { background: var(--dock); padding: 16px 12px; display: flex; flex-direction: column; gap: 6px; }
+  h1 { font-size: 17px; margin: 4px 8px 12px; }
+  button { font: inherit; font-size: 15px; font-weight: 600; color: var(--paper); background: transparent; border: 0; border-radius: 11px;
+           padding: 11px 14px; text-align: left; cursor: pointer; transition: background var(--fast), color var(--fast); }
+  button:hover { background: var(--line); }
+  button:active { transform: scale(.97); }
+  button:focus-visible { outline: 2px solid var(--lime); outline-offset: 1px; }
+  button[aria-current="true"] { background: var(--lime); color: var(--dock); }
+  .skip { margin-top: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .skip button { text-align: center; padding: 11px 4px; }
+  .hint { font-size: 12px; opacity: .72; text-align: center; margin: 6px 0 0; }
+  .hint a { color: inherit; }
+  main { display: flex; align-items: center; justify-content: center; padding: 16px; min-width: 0; }
+  video { width: 100%; max-height: calc(100vh - 32px); border-radius: 12px; background: #000; display: block; }
+  @media (max-width: 720px) {
+    body { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; }
+    nav { flex-direction: row; flex-wrap: wrap; }
+    h1, .hint { display: none; }
+    .skip { margin: 0; border: 0; padding: 0; width: 100%; }
+  }
+  .credit summary { cursor: pointer; }
+  .credit a { display: block; margin-top: 6px; }
+</style>
+</head>
+<body>
+<nav id="nav">
+  <h1 id="title"></h1>
+  <div id="sections" style="display:contents"></div>
+  <div class="skip">
+    <button id="previous" type="button"></button>
+    <button id="next" type="button"></button>
+  </div>
+  <p class="hint" id="hint"></p>
+  <details class="hint credit">
+    <summary id="blog"></summary>
+    <a id="visit" href="https://blog.naver.com/profile/intro.naver?blogId=yelsam_lab" target="_blank" rel="noopener"></a>
+    <a id="suggest" href="mailto:bongbiyobi@gmail.com"></a>
+    <a id="phone" href="https://blog.naver.com/yelsam_lab/224469355120" target="_blank" rel="noopener"></a>
+  </details>
+</nav>
+<main><video id="video" controls autoplay muted playsinline></video></main>
+<script>
+  // Times match scripts/make-guide.swift. The app replaces __LANG__ when it writes this page.
+  var lang = "__LANG__" === "en" ? "en" : "ko";
+  var text = {
+    ko: { title: "YelPoint 사용법", previous: "◀ 이전", next: "다음 ▶", hint: "←, → 키로도 넘길 수 있어요", blog: "© yelsam.lab · 블로그·제안", visit: "옐샘 블로그 둘러보기", suggest: "옐샘에게 제안하기", phone: "휴대폰 연결 방법 (사진 안내)", subject: "YelPoint 제안", nav: "사용법 섹션",
+          names: ["처음부터", "강조", "돋보기", "펜", "타이머", "캡처", "스팟", "크기 조절", "도구막대", "폰 연결", "칠판 · QR", "단축키", "이용 안내"] },
+    en: { title: "How to Use YelPoint", previous: "◀ Back", next: "Next ▶", hint: "The ←, → keys also skip sections", blog: "© yelsam.lab · Blog·Ideas", visit: "Visit Yelsam's blog", suggest: "Send Yelsam a suggestion", phone: "Connecting a phone (photo guide, Korean)", subject: "YelPoint suggestion", nav: "Guide sections",
+          names: ["From the Start", "Highlight", "Zoom", "Pen", "Timer", "Capture", "Spot", "Resize", "Toolbar", "Phone", "Board · QR", "Shortcuts", "Good to Know"] }
+  }[lang];
+  var starts = [0, 3.5, 9.5, 15.5, 23.5, 30.5, 39.5, 48, 55, 64, 77, 87, 92];
+  document.documentElement.lang = lang;
+  document.title = text.title;
+  document.getElementById("title").textContent = text.title;
+  document.getElementById("nav").setAttribute("aria-label", text.nav);
+  document.getElementById("previous").textContent = text.previous;
+  document.getElementById("next").textContent = text.next;
+  document.getElementById("hint").textContent = text.hint;
+  document.getElementById("blog").textContent = text.blog;
+  document.getElementById("visit").textContent = text.visit;
+  document.getElementById("phone").textContent = text.phone;
+  var suggest = document.getElementById("suggest");
+  suggest.textContent = text.suggest + " · bongbiyobi@gmail.com";
+  suggest.href += "?subject=" + encodeURIComponent(text.subject);
+  var video = document.getElementById("video");
+  video.src = "guide-" + lang + ".mp4";
+  var list = document.getElementById("sections");
+  var buttons = text.names.map(function (name, index) {
+    var button = document.createElement("button");
+    button.type = "button";
+    button.textContent = name;
+    button.addEventListener("click", function () { go(index); });
+    list.appendChild(button);
+    return button;
+  });
+  function current() {
+    var index = 0;
+    starts.forEach(function (start, i) { if (video.currentTime + 0.01 >= start) index = i; });
+    return index;
+  }
+  function mark() {
+    var active = current();
+    buttons.forEach(function (button, i) { button.setAttribute("aria-current", i === active ? "true" : "false"); });
+  }
+  function go(index) {
+    video.currentTime = starts[Math.max(0, Math.min(starts.length - 1, index))];
+    video.play();
+    mark();
+  }
+  document.getElementById("previous").addEventListener("click", function () { go(current() - 1); });
+  document.getElementById("next").addEventListener("click", function () { go(current() + 1); });
+  document.addEventListener("keydown", function (event) {
+    if (event.key === "ArrowLeft") { go(current() - 1); event.preventDefault(); }
+    if (event.key === "ArrowRight") { go(current() + 1); event.preventDefault(); }
+  });
+  video.addEventListener("timeupdate", mark);
+  video.addEventListener("seeked", mark);
+  mark();
+</script>
+</body>
+</html>

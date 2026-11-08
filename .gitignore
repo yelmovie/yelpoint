@@ -1,0 +1,29 @@
+# macOS metadata (the exFAT SSD makes ._ files for everything)
+._*
+.DS_Store
+
+# Release files go to GitHub Releases, not into the repository
+dist/
+.build/
+
+# Working notes, QA data, browser profiles and backups: may hold personal data
+analysis/
+previews/
+reports/
+research_notes/
+data/
+*.part
+*.log
+
+# Third-party binaries: download from the official scrcpy v5.0.1 release and
+# check them against vendor/VENDOR-SHA256.txt (the build scripts do this)
+vendor/scrcpy-*/
+
+# Leftover temporary copies from video rendering
+*.sb-*
+
+# Local AI tool settings (machine-specific)
+.agents/
+.claude/
+.codex/
+.mcp.json

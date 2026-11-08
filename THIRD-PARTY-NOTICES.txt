@@ -1,0 +1,135 @@
+YelPoint 함께 넣은 외부 프로그램 / Third-party software in YelPoint
+
+YelPoint의 코드·아이콘·효과음은 yelsam.lab이 직접 만들었습니다.
+안드로이드 폰·태블릿 화면과 실물화상기 기능에는 아래 오픈소스 프로그램을 수정 없이 함께 넣었습니다.
+YelPoint's own code, icons and sounds are by yelsam.lab. The Android screen and document
+camera feature ships the following open-source programs unmodified.
+
+1. scrcpy 5.0.1 — Copyright (C) 2018 Genymobile, Copyright (C) 2018-2026 Romain Vimont
+   License: Apache License 2.0 — https://www.apache.org/licenses/LICENSE-2.0
+   Source: https://github.com/Genymobile/scrcpy (release v5.0.1)
+
+2. adb (Android Debug Bridge, Android SDK Platform-Tools) — The Android Open Source Project
+   License: Apache License 2.0
+   Source: https://android.googlesource.com/platform/packages/modules/adb/
+
+3. Libraries used by scrcpy (linked into the macOS scrcpy program, separate DLLs on Windows)
+   - FFmpeg — GNU Lesser General Public License 2.1 or later — https://ffmpeg.org/download.html
+   - SDL 3 — zlib License — https://github.com/libsdl-org/SDL
+   - libusb — GNU Lesser General Public License 2.1 or later — https://github.com/libusb/libusb
+   The LGPL libraries are the unmodified builds published with scrcpy v5.0.1. Their source code
+   is available at the links above and from the scrcpy release page. On Windows they are
+   separate DLL files that can be replaced with compatible versions.
+
+4. Nanum Pen Script (칠판 손글씨 / chalkboard handwriting) — Copyright (c) 2010, NHN Corporation
+   License: SIL Open Font License 1.1 — the full license follows at the end of this file.
+   Source: https://github.com/google/fonts/tree/main/ofl/nanumpenscript (unmodified)
+
+5. Nanum Gothic Bold (자막·칠판 고딕 / subtitles and board sans) — Copyright (c) 2010, NHN Corporation
+   License: SIL Open Font License 1.1 (same license text as below; reserved font names include NanumGothic)
+   Source: https://github.com/google/fonts/tree/main/ofl/nanumgothic (unmodified)
+
+6. Nanum Myeongjo Bold (칠판 명조 / board serif) — Copyright (c) 2010, NHN Corporation
+   License: SIL Open Font License 1.1 (same license text as below; reserved font names include NanumMyeongjo)
+   Source: https://github.com/google/fonts/tree/main/ofl/nanummyeongjo (unmodified)
+
+The full scrcpy license text is included as scrcpy-LICENSE.txt.
+
+---- SIL Open Font License 1.1 for Nanum Pen Script, Nanum Gothic and Nanum Myeongjo ----
+Copyright (c) 2010, NHN Corporation (http://www.nhncorp.com),
+with Reserved Font Name Nanum, Naver Nanum, NanumGothic, Naver 
+NanumGothic, NanumMyeongjo, Naver NanumMyeongjo, NanumBrush, Naver
+NanumBrush, NanumPen, Naver NanumPen.
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+This license is copied below, and is also available with a FAQ at:
+http://scripts.sil.org/OFL
+
+
+-----------------------------------------------------------
+SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
+-----------------------------------------------------------
+
+PREAMBLE
+The goals of the Open Font License (OFL) are to stimulate worldwide
+development of collaborative font projects, to support the font creation
+efforts of academic and linguistic communities, and to provide a free and
+open framework in which fonts may be shared and improved in partnership
+with others.
+
+The OFL allows the licensed fonts to be used, studied, modified and
+redistributed freely as long as they are not sold by themselves. The
+fonts, including any derivative works, can be bundled, embedded, 
+redistributed and/or sold with any software provided that any reserved
+names are not used by derivative works. The fonts and derivatives,
+however, cannot be released under any other type of license. The
+requirement for fonts to remain under this license does not apply
+to any document created using the fonts or their derivatives.
+
+DEFINITIONS
+"Font Software" refers to the set of files released by the Copyright
+Holder(s) under this license and clearly marked as such. This may
+include source files, build scripts and documentation.
+
+"Reserved Font Name" refers to any names specified as such after the
+copyright statement(s).
+
+"Original Version" refers to the collection of Font Software components as
+distributed by the Copyright Holder(s).
+
+"Modified Version" refers to any derivative made by adding to, deleting,
+or substituting -- in part or in whole -- any of the components of the
+Original Version, by changing formats or by porting the Font Software to a
+new environment.
+
+"Author" refers to any designer, engineer, programmer, technical
+writer or other person who contributed to the Font Software.
+
+PERMISSION & CONDITIONS
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of the Font Software, to use, study, copy, merge, embed, modify,
+redistribute, and sell modified and unmodified copies of the Font
+Software, subject to the following conditions:
+
+1) Neither the Font Software nor any of its individual components,
+in Original or Modified Versions, may be sold by itself.
+
+2) Original or Modified Versions of the Font Software may be bundled,
+redistributed and/or sold with any software, provided that each copy
+contains the above copyright notice and this license. These can be
+included either as stand-alone text files, human-readable headers or
+in the appropriate machine-readable metadata fields within text or
+binary files as long as those fields can be easily viewed by the user.
+
+3) No Modified Version of the Font Software may use the Reserved Font
+Name(s) unless explicit written permission is granted by the corresponding
+Copyright Holder. This restriction only applies to the primary font name as
+presented to the users.
+
+4) The name(s) of the Copyright Holder(s) or the Author(s) of the Font
+Software shall not be used to promote, endorse or advertise any
+Modified Version, except to acknowledge the contribution(s) of the
+Copyright Holder(s) and the Author(s) or with their explicit written
+permission.
+
+5) The Font Software, modified or unmodified, in part or in whole,
+must be distributed entirely under this license, and must not be
+distributed under any other license. The requirement for fonts to
+remain under this license does not apply to any document created
+using the Font Software.
+
+TERMINATION
+This license becomes null and void if any of the above conditions are
+not met.
+
+DISCLAIMER
+THE FONT SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT
+OF COPYRIGHT, PATENT, TRADEMARK, OR OTHER RIGHT. IN NO EVENT SHALL THE
+COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+INCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL
+DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
+OTHER DEALINGS IN THE FONT SOFTWARE.
+

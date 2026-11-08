@@ -1,0 +1,60 @@
+YelPoint 이용 조건 / YelPoint License
+Copyright (c) 2026 yelsam.lab. All rights reserved.
+
+[한국어]
+
+1. 쓸 수 있어요
+   - 개인, 학교, 공공·비영리 교육기관은 수업·강의·발표에 YelPoint를 무료로 설치하고 쓸 수 있어요.
+   - YelPoint로 만든 녹화 영상, 캡처, 자막, 칠판 그림은 만든 사람의 것이에요. 자유롭게 써도 돼요.
+
+2. 할 수 없어요
+   - 상업적 이용: 판매·대여, 유료 상품이나 서비스에 넣거나 함께 배포하기, 영리 회사·학원이 업무용으로 쓰기.
+   - 수정·재배포: 프로그램을 고치거나 역설계하기, 다른 사이트·카페·메신저·자료실에 다시 올리거나 파일로 나눠 주기.
+     다른 사람에게 알려 줄 때는 공식 배포처 주소를 알려 주세요.
+   - 이름 사용: YelPoint 이름·아이콘과 yelsam.lab 이름을 다른 프로그램이나 고친 버전에 쓰기.
+   위 내용은 저작권자의 서면 허락이 있을 때만 할 수 있어요.
+
+3. 공식 배포처
+   YelPoint는 옐샘 블로그(https://blog.naver.com/yelsam_lab)에 안내된 곳에서만 배포해요.
+   다른 곳에서 받은 파일은 바뀌었을 수 있고, 저작권자와 관계가 없어요.
+
+4. 보증과 책임
+   YelPoint는 "있는 그대로" 무료로 제공하며, 어떤 보증도 하지 않아요.
+   법이 허용하는 범위에서, 사용하면서 생긴 손해를 책임지지 않아요.
+   특히 공식 배포처가 아닌 곳에서 받았거나 누군가 바꾼 파일로 생긴 피해는 저작권자와 관계가 없어요.
+
+5. 함께 넣은 외부 프로그램
+   scrcpy, adb, 나눔 글꼴 같은 외부 프로그램은 각자의 라이선스를 따라요(THIRD-PARTY-NOTICES.txt).
+   이 이용 조건은 그 프로그램들에 대한 권리를 줄이지 않아요.
+
+6. 조건을 어기면 이용 허락은 자동으로 끝나요.
+
+
+[English]
+
+1. You may
+   - Install and use YelPoint free of charge for teaching, lectures and presentations, as an individual,
+     a school, or a public or non-profit educational institution.
+   - Use the videos, captures, subtitles and board drawings you make with YelPoint freely. They are yours.
+
+2. You may not, without written permission from the copyright holder
+   - Use it commercially: sell or rent it, include it in or bundle it with a paid product or service,
+     or use it for business purposes in a for-profit company or private academy.
+   - Modify, reverse engineer or redistribute it, including re-uploading it to other sites, forums,
+     chats or file shares. Share the official download address instead.
+   - Use the YelPoint name or icon, or the yelsam.lab name, for any other program or modified version.
+
+3. Official source
+   YelPoint is distributed only from the places listed on Yelsam's blog (https://blog.naver.com/yelsam_lab).
+   Files from anywhere else may have been altered and are not connected to the copyright holder.
+
+4. No warranty
+   YelPoint is provided free of charge, "as is", without warranty of any kind. To the extent permitted by
+   law, the copyright holder is not liable for any damage arising from its use, and in particular not for
+   files obtained from unofficial sources or altered by others.
+
+5. Third-party software
+   Bundled third-party software (scrcpy, adb, Nanum fonts and others) is covered by its own license,
+   listed in THIRD-PARTY-NOTICES.txt. Nothing in this license limits your rights under those licenses.
+
+6. Your permission to use YelPoint ends automatically if you break these terms.
