@@ -1,6 +1,12 @@
 import AppKit
 
+if CommandLine.arguments.contains("--clipboard-self-test") {
+  ImageClipboard.selfTest()
+  exit(0)
+}
+
 if CommandLine.arguments.contains("--self-test") {
+  ImageClipboard.selfTest()
   var p = Preferences()
   p.penColor = 99
   p.penWidth = 100

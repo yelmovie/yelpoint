@@ -7,6 +7,19 @@ private struct DiagnosticFailure: Error { let description: String }
 extension AppController {
   /// Exercises our own handlers and views without injecting input into other apps.
   func runUISelfTest() {
+    // Keep clipboard regression checks from replacing the user's current clipboard.
+    let savedClipboard = (NSPasteboard.general.pasteboardItems ?? []).map { item in
+      item.types.compactMap { type in item.data(forType: type).map { (type, $0) } }
+    }
+    func restoreClipboard() {
+      let items = savedClipboard.map { entries -> NSPasteboardItem in
+        let item = NSPasteboardItem()
+        for (type, data) in entries { item.setData(data, forType: type) }
+        return item
+      }
+      NSPasteboard.general.clearContents()
+      NSPasteboard.general.writeObjects(items)
+    }
     do {
       func check(_ condition: @autoclosure () -> Bool, _ name: String) throws {
         if !condition() { throw DiagnosticFailure(description: name) }
@@ -31,9 +44,32 @@ extension AppController {
           SendEventToEventTarget(event, GetApplicationEventTarget()) == noErr,
           "own hotkey event dispatch")
       }
+      dockView.buttons["pen"]?.callback?()
+      try check(pen && !penPanel.isVisible, "toolbar pen draws without opening options")
+      dockView.buttons["penOptions"]?.callback?()
+      try check(penPanel.isVisible, "explicit options arrow opens the palette")
+      dockView.buttons["penOptions"]?.callback?()
+      refreshTools()
+      try check(pen && !penPanel.isVisible, "right click dismisses options without disabling pen")
+      dockView.buttons["pen"]?.callback?()
+      try check(!pen && !penPanel.isVisible, "repeated toolbar click exits pen")
+      dockView.buttons["capture"]?.callback?()
+      try check(selecting && !capturePanel.isVisible, "toolbar capture goes directly to selection")
+      dockView.buttons["capture"]?.callback?()
+      try check(!selecting && overlays.allSatisfy { $0.0.ignoresMouseEvents }, "repeated capture click cancels")
+      dockView.buttons["captureOptions"]?.callback?()
+      try check(capturePanel.isVisible, "right click exposes recording and save")
+      returnToPointer()
       try hotkey(3)
       preferences.fadingInk = true
-      try check(pen && penPanel.isVisible, "pen mode and palette")
+      try check(pen && !penPanel.isVisible, "keyboard pen never opens the palette")
+      refreshTools()
+      try check(!penPanel.isVisible, "refresh never opens the palette")
+      togglePenOptions()
+      try check(penPanel.isVisible, "explicit options click opens the palette")
+      togglePenOptions()
+      refreshTools()
+      try check(!penPanel.isVisible, "dismissed palette stays closed")
       try check(escapeKey != nil, "Escape shortcut registration")
       passthrough = false
       let first = overlays[0].1
@@ -133,8 +169,7 @@ extension AppController {
         "standing toolbar stays at the edge and follows up and down")
       endToolbarDrag()
       toggle("capture")
-      try check(selecting && !capturePanel.isVisible, "the capture button goes straight to choosing an area")
-      finishSelection(screen: NSScreen.main!, rect: .zero)
+      try check(!selecting && capturePanel.isVisible, "the capture button shows photo and recording choices beside the standing bar")
       try check(capturePanel.frame.minX >= toolbar.frame.maxX, "panels open beside a standing toolbar")
       try check(
         capturePanel.frame.width < capturePanel.frame.height && phonePanel.frame.width <= 212
@@ -195,7 +230,7 @@ extension AppController {
       moveMini(to: CGPoint(x: top.minX + 200, y: top.minY + 200))
       try check(toolbar.frame.minX == top.minX + 200, "hidden toolbar follows the small button")
       try hotkey(7)
-      try check(toolbar.isVisible && !miniPanel.isVisible && penPanel.isVisible, "toolbar comes back")
+      try check(toolbar.isVisible && !miniPanel.isVisible && !penPanel.isVisible, "toolbar comes back without reopening palette")
       returnToPointer()
       withToolsSuspended { diagnosticExitCode = miniPanel.isVisible ? 1 : 0 }
       toolbar.setFrameOrigin(home)
@@ -307,10 +342,46 @@ extension AppController {
       try check(countdown.minutes == 60, "running timer keeps its length")
       timerReset()
       try check(!countdown.isActive && !clockPanel.isVisible, "timer resets and the clock leaves")
+      toggle("pen")
+      toggle("capture")
+      try check(capturePanel.isVisible && !selecting && !timerPanel.isVisible && !pen && !penPanel.isVisible,
+        "Capture opens the photo and video menu without area selection or an overlapping pen palette")
+      try check(captureView.record.superview === captureView
+        && captureView.record.title == tr("화면 녹화", "Record") && captureView.record.isEnabled
+        && captureView.bounds.contains(captureView.record.frame),
+        "the recording button is visible and enabled in the capture menu")
+      // Exercise the real Record button, but cancel the notice before any capture starts.
+      let beforeRecordingFiles = (try? FileManager.default.contentsOfDirectory(atPath: capturesFolder.path)) ?? []
+      var sawRecordingNotice = false
+      let cancelRecordingNotice = Timer(timeInterval: 0.1, repeats: false) { _ in
+        sawRecordingNotice = self.recordingStartPending && self.toolsSuspended && NSApp.modalWindow != nil
+        self.captureView.record.callback?() // A repeated click must not open a second notice.
+        NSApp.abortModal()
+      }
+      RunLoop.main.add(cancelRecordingNotice, forMode: .modalPanel)
+      captureView.record.callback?()
+      cancelRecordingNotice.invalidate()
+      let afterRecordingFiles = (try? FileManager.default.contentsOfDirectory(atPath: capturesFolder.path)) ?? []
+      try check(sawRecordingNotice && !recordingStartPending && recorder == nil && !recordingLive
+        && capturePanel.isVisible && Set(beforeRecordingFiles) == Set(afterRecordingFiles),
+        "Record opens its notice and cancel restores the menu without recording or creating files")
+      let photoButton = captureView.subviews.compactMap { $0 as? ToolButton }.first
+      try check(photoButton?.title == tr("사진 캡처", "Photo"), "photo capture is labelled separately from recording")
+      toggle("capture")
+      try check(!capturePanel.isVisible && !selecting, "clicking Capture again dismisses its menu")
+      toggle("capture")
+      try check(capturePanel.isVisible, "the photo and video menu can reopen")
+      photoButton?.callback?()
+      try check(selecting && !capturePanel.isVisible, "choosing a photo closes the menu and selects an area")
+      toggle("capture")
+      try check(!selecting && capturePanel.isVisible, "Capture returns from area selection to the photo and video menu")
       try hotkey(5)
-      try check(selecting && !timerPanel.isVisible, "the capture key goes straight to choosing an area")
+      try check(selecting && !timerPanel.isVisible && !capturePanel.isVisible, "the capture key goes straight to choosing an area")
+      try hotkey(5)
+      try check(!selecting, "the quick capture key can cancel area selection")
+      try hotkey(5)
       finishSelection(screen: NSScreen.main!, rect: .zero)
-      try check(capturePanel.isVisible && !timerPanel.isVisible, "a click without dragging opens the capture menu")
+      try check(!capturePanel.isVisible && !selecting, "a click without dragging cancels without opening a menu")
       toggle("pen")
       try check(pen && !capturePanel.isVisible, "pen closes capture panel")
       returnToPointer()
@@ -431,6 +502,92 @@ extension AppController {
       try check(
         !stickers.contains { $0 === pinnedWindow } && canvas.strokes.isEmpty,
         "✕ closes a capture while the pen is on")
+      returnToPointer()
+      // Captures use their own input surface, not the full-screen pen overlay.
+      let captureFrame = CGRect(x: origin.x + 300, y: origin.y + 300, width: 120, height: 90)
+      store(picture.cgImage(forProposedRect: nil, context: nil, hints: nil)!, scale: 1, frame: captureFrame)
+      try check(stickers.isEmpty && !pen && !penPanel.isVisible && !capturePanel.isVisible
+        && overlays.allSatisfy { $0.0.ignoresMouseEvents } && escapeKey == nil
+        && NSPasteboard.general.types?.contains(.png) == true,
+        "capture copies PNG without windows, drawing mode or desktop interception")
+      for _ in 0..<3 {
+        store(picture.cgImage(forProposedRect: nil, context: nil, hints: nil)!, scale: 1, frame: captureFrame)
+      }
+      try check(stickers.isEmpty && !penPanel.isVisible && !capturePanel.isVisible,
+        "repeated capture never creates or reopens windows")
+      toggle("timer")
+      store(picture.cgImage(forProposedRect: nil, context: nil, hints: nil)!, scale: 1, frame: captureFrame)
+      try check(timerPanel.isVisible, "late capture completion preserves a newer tool panel")
+      returnToPointer()
+      hideHalo = true
+      beginSelection()
+      finishSelection(screen: NSScreen.main!, rect: .zero)
+      try check(!hideHalo && !selecting, "cancelled replacement capture restores pointer halo")
+      toggle("pen")
+      canvas.mouseDown(with: mouse(.leftMouseDown, CGPoint(x: 20, y: 20)))
+      store(picture.cgImage(forProposedRect: nil, context: nil, hints: nil)!, scale: 1)
+      try check(canvas.activeStroke != nil && pen, "late capture leaves newer active handwriting intact")
+      returnToPointer()
+      clear()
+      // Pinning and annotating remain available only when explicitly requested.
+      addSticker(picture, at: captureFrame)
+      pen = true
+      capturePenOnly = true
+      refreshTools()
+      guard let localInk = stickers.last?.contentView as? StickerView,
+        let localWindow = localInk.window as? QuietPanel else { throw DiagnosticFailure(description: "capture-only pen") }
+      func imageMouse(_ type: NSEvent.EventType, _ point: CGPoint) -> NSEvent {
+        NSEvent.mouseEvent(
+          with: type, location: localInk.convert(point, to: nil), modifierFlags: [], timestamp: 0,
+          windowNumber: localWindow.windowNumber, context: nil, eventNumber: 0,
+          clickCount: 1, pressure: 1)!
+      }
+      try check(pen && capturePenOnly && !penPanel.isVisible && drawingOnCaptures,
+        "capture keeps the pen ready on images")
+      try check(overlays.allSatisfy { $0.0.ignoresMouseEvents } && localWindow.becomesKeyOnlyIfNeeded && escapeKey == nil,
+        "capture pen leaves other apps clickable without taking their keyboard")
+      let outsideCount = canvas.strokes.count
+      canvas.mouseDown(with: mouse(.leftMouseDown, CGPoint(x: 20, y: 20)))
+      canvas.mouseUp(with: mouse(.leftMouseUp, CGPoint(x: 20, y: 20)))
+      try check(canvas.strokes.count == outsideCount, "capture pen never draws outside the image")
+      let autoCopyBefore = NSPasteboard.general.changeCount
+      localInk.mouseDown(with: imageMouse(.leftMouseDown, CGPoint(x: 20, y: 20)))
+      localInk.mouseDragged(with: imageMouse(.leftMouseDragged, CGPoint(x: 80, y: 50)))
+      localInk.mouseUp(with: imageMouse(.leftMouseUp, CGPoint(x: 80, y: 50)))
+      try check(localInk.strokes.count == 1 && localInk.strokes[0].points.count == 2
+        && NSPasteboard.general.changeCount > autoCopyBefore && pen && drawingOnCaptures,
+        "image-local strokes auto-copy and keep the pen ready")
+      localInk.mouseDown(with: imageMouse(.leftMouseDown, CGPoint(x: 30, y: 20)))
+      try check(copySticker(localInk, announce: false) && localInk.activeStroke == nil
+        && localInk.strokes.count == 2 && pen && !penPanel.isVisible
+        && overlays.allSatisfy { $0.0.ignoresMouseEvents },
+        "copy finishes an active stroke without turning off the pen or blocking the desktop")
+      for _ in 0..<3 { try check(copySticker(localInk, announce: false), "repeat copy succeeds") }
+      try check(localInk.strokes.count == 2, "repeated copies never duplicate ink")
+      undo()
+      try check(localInk.strokes.count == 1 && pen, "undo works after capture copy")
+      localInk.mouseDown(with: imageMouse(.leftMouseDown, CGPoint(x: 40, y: 30)))
+      setPassthrough(true)
+      try check(localInk.activeStroke == nil && localInk.strokes.count == 2 && !drawingOnCaptures,
+        "Option commits image-local ink before switching to move")
+      setPassthrough(false)
+      localInk.menuPoint = CGPoint(x: 10, y: 40)
+      localInk.beginNote(color: .systemRed)
+      localInk.editor?.stringValue = "복사 전 입력"
+      try check(copySticker(localInk, announce: false) && localInk.notes.last?.text == "복사 전 입력"
+        && localInk.editor == nil && pen,
+        "copy commits unfinished text while keeping the capture pen")
+      withToolsSuspended { diagnosticExitCode = localWindow.isVisible ? 1 : 0 }
+      try check(diagnosticExitCode == 0 && localWindow.isVisible && drawingOnCaptures
+        && overlays.allSatisfy { $0.0.ignoresMouseEvents }, "capture pen survives modal restoration")
+      toggle("pen")
+      toggle("pen")
+      try check(pen && !capturePenOnly && overlays.allSatisfy { !$0.0.ignoresMouseEvents },
+        "choosing the regular pen still enables full-screen drawing")
+      try check(copySticker(localInk, announce: false) && pen && capturePenOnly
+        && overlays.allSatisfy { $0.0.ignoresMouseEvents },
+        "copy from full-screen pen keeps drawing on images and releases the desktop")
+      removeSticker(stickers.last!)
       returnToPointer()
       preferences.fadingInk = false
       toggle("phone")
@@ -553,6 +710,7 @@ extension AppController {
       diagnosticExitCode = 1
       print("FAIL: \(error)")
     }
+    restoreClipboard()
     if diagnosticExitCode != 0 {
       applicationWillTerminate(Notification(name: NSApplication.willTerminateNotification))
       exit(diagnosticExitCode)

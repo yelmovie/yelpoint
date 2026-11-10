@@ -6,6 +6,9 @@ final class AppController: NSObject, NSApplicationDelegate {
   let storage: PortableStorage
   var preferences: Preferences
   var pen = false, zoom = false, passthrough = false
+  /// Capturing arms the pen only inside images; the rest of the desktop stays usable.
+  var capturePenOnly = false
+  var drawingOnCaptures: Bool { pen && capturePenOnly && !passthrough && !toolsSuspended && !selecting && !spotEditing }
   var pointer = NSEvent.mouseLocation
   var pulses: [ClickPulse] = []
   var overlays: [(QuietPanel, OverlayView)] = []
@@ -36,6 +39,8 @@ final class AppController: NSObject, NSApplicationDelegate {
   var phoneWasReady = false
   /// The recorder is capturing, not still starting up.
   var recordingLive = false
+  /// Prevent another recording request while the start notice or permission dialog is open.
+  var recordingStartPending = false
   /// The lesson app that was in front before YelPoint took the keyboard, so it gets it back.
   var focusReturn: NSRunningApplication?
   var colorPanel: QuietPanel!
@@ -66,6 +71,7 @@ final class AppController: NSObject, NSApplicationDelegate {
   var countdown = Countdown()
   var selecting = false, hideHalo = false
   var stickers: [QuietPanel] = []
+  var captureGeneration = 0
   var lastCapture: CGImage?
   var recorder: ScreenRecorder?
   var capture = MagnifierCapture()
@@ -477,6 +483,7 @@ final class AppController: NSObject, NSApplicationDelegate {
     case "pen":
       finishStrokes()
       pen.toggle()
+      capturePenOnly = false
       if pen {
         zoom = false
         capture.stop()
@@ -543,14 +550,19 @@ final class AppController: NSObject, NSApplicationDelegate {
         present(phonePanel)
       }
     case "capture":
-      // Straight into choosing an area. A click without dragging opens the capture menu instead.
-      if selecting {
-        selecting = false
-        NSCursor.arrow.set()
-      } else if capturePanel.isVisible {
+      // Make photo and video capture equally discoverable. ⌃⌥5 remains the quick photo path.
+      if capturePanel.isVisible {
         capturePanel.orderOut(nil)
       } else {
-        beginSelection()
+        finishStrokes()
+        pen = false
+        zoom = false
+        capture.stop()
+        capturedDisplay = nil
+        magnifiedImage = nil
+        hideToolPanels()
+        captureView.refresh()
+        present(capturePanel)
       }
     default: break
     }
@@ -597,13 +609,23 @@ final class AppController: NSObject, NSApplicationDelegate {
     }
     invalidateAll()
   }
+  func togglePenOptions() {
+    guard !toolsSuspended else { return }
+    if penPanel.isVisible {
+      penPanel.orderOut(nil)
+      colorPanel.orderOut(nil)
+    } else {
+      if !pen { toggle("pen") }
+      present(penPanel)
+    }
+  }
   func hideToolPanels() {
     if selecting { NSCursor.arrow.set() }
     selecting = false
     spotShape = nil
     spotDrag = nil
     for (_, view) in overlays { view.selection = nil }
-    for window in [settingsPanel, timerPanel, capturePanel, spotPanel, phonePanel, qrPanel] { window?.orderOut(nil) }
+    for window in [penPanel, colorPanel, settingsPanel, timerPanel, capturePanel, spotPanel, phonePanel, qrPanel] { window?.orderOut(nil) }
   }
   func setZoom(_ level: CGFloat) {
     preferences.zoom = level
@@ -679,9 +701,7 @@ final class AppController: NSObject, NSApplicationDelegate {
     spotView.refresh()
     phoneView.refresh()
     phone.watch(phonePanel.isVisible || preferences.phoneAuto == true)
-    if pen && !toolsSuspended && preferences.toolbarHidden != true {
-      present(penPanel)
-    } else {
+    if !pen || toolsSuspended || preferences.toolbarHidden == true {
       penPanel.orderOut(nil)
       if !toolsSuspended { colorPanel.orderOut(nil) }
     }
@@ -701,18 +721,24 @@ final class AppController: NSObject, NSApplicationDelegate {
     let entering = value && !passthrough
     passthrough = value
     if entering {
-      for (_, view) in overlays { view.finishStroke(notify: false) }
+      finishStrokes(notify: false)
     }
     for (w, v) in overlays {
-      let ignores = toolsSuspended || !(selecting || spotEditing || (pen && !passthrough))
+      let ignores = toolsSuspended || !(selecting || spotEditing || (pen && !capturePenOnly && !passthrough))
       if w.ignoresMouseEvents != ignores {
         w.ignoresMouseEvents = ignores
         w.invalidateCursorRects(for: v)
         v.needsDisplay = true
       }
     }
+    for case let view as StickerView in stickers.map({ $0.contentView }) { view.updateDrawingInput() }
   }
-  func finishStrokes() { for (_, v) in overlays { v.finishStroke() } }
+  func finishStrokes(notify: Bool = true) {
+    for (_, v) in overlays { v.finishStroke(notify: notify) }
+    for case let view as StickerView in stickers.map({ $0.contentView }) {
+      view.finishStroke(notify: notify)
+    }
+  }
   func preferencesChanged() {
     preferences.validate()
     do { try storage.save(preferences) } catch {
@@ -745,6 +771,15 @@ final class AppController: NSObject, NSApplicationDelegate {
     preferencesChanged()
   }
   func clicked(_ event: NSEvent) {
+    // Dismiss transient options without consuming the click intended for the other app.
+    let clickPoint = NSEvent.mouseLocation
+    if !toolsSuspended && ![toolbar, penPanel, colorPanel, capturePanel].contains(where: {
+      $0?.isVisible == true && $0!.frame.contains(clickPoint)
+    }) {
+      penPanel.orderOut(nil)
+      colorPanel.orderOut(nil)
+      capturePanel.orderOut(nil)
+    }
     guard !toolsSuspended, preferences.highlight, !pen, !selecting, !spotEditing else { return }
     let p = NSEvent.mouseLocation
     if [toolbar, penPanel, settingsPanel, timerPanel, capturePanel, colorPanel, spotPanel, miniPanel, zoomPanel, clockPanel, phonePanel, qrPanel, qrWindow]
@@ -940,6 +975,8 @@ final class AppController: NSObject, NSApplicationDelegate {
         guard !c.toolsSuspended else { return OSStatus(eventNotHandledErr) }
         if key.id == 99 {
           c.returnToPointer()
+        } else if key.id == 5 {
+          if c.selecting { c.returnToPointer() } else { c.beginSelection() }
         } else if key.id >= 1 && key.id <= 7 {
           c.toggle(["highlight", "zoom", "pen", "timer", "capture", "spot", "hide"][Int(key.id) - 1])
         }
@@ -963,7 +1000,7 @@ final class AppController: NSObject, NSApplicationDelegate {
   func updateEscape() {
     if !toolsSuspended
       // Only while a mode holds the mouse; an open panel must not take Esc from slideshows or videos.
-      && (pen || zoom || selecting || spotEditing || qrWindow.isVisible)
+      && ((pen && !capturePenOnly) || zoom || selecting || spotEditing || qrWindow.isVisible)
     {
       if escapeKey == nil {
         RegisterEventHotKey(
@@ -976,6 +1013,7 @@ final class AppController: NSObject, NSApplicationDelegate {
     }
   }
   func returnToPointer() {
+    hideHalo = false
     finishStrokes()
     pen = false
     zoom = false
@@ -1010,7 +1048,7 @@ final class AppController: NSObject, NSApplicationDelegate {
     }
     showMessage(
       tr("YelPoint 사용법", "How to Use YelPoint"),
-      tr("강조: 커서 주변 링과 좌우 클릭 표시\nControl+스크롤: 위로 크게, 아래로 작게 (스팟 → 주변 어둡게 원 → 포인터 순서)\n돋보기: 커서 부근 실시간 확대, 1.5~5배 선택\n펜: 색 3개와 색상환 · 굵기 슬라이더(1~30) · 되돌리기 · 지우기\n타이머: 1~60분 카운트다운. 분 직접 입력, 시계는 끌어서 이동하고 모서리로 크기 조절\n캡처: 영역을 고르면 바로 복사되고 그림 아래 버튼으로 저장·글자·붙여넣기·닫기. 메뉴에서 화면 녹화와 영상 자막\n스팟: 사각·원·타원으로 드래그하면 빨간 선으로 표시. 선을 끌어 크기 조절, 바깥 클릭으로 완료\n\n⌃⌥1 강조 · 2 돋보기 · 3 펜 · 4 타이머 · 5 캡처 · 6 스팟\nEsc: 조작 모드로 돌아오기 (필기는 유지)\nOption을 누르는 동안: 필기 중 클릭·스크롤 통과\n도구막대는 버튼을 잡고 끌어도 어디든 옮겨져요. 왼쪽·오른쪽 끝에 닿으면 바로 세로로 서요. 눈 버튼이나 ⌃⌥0으로 숨길 수 있어요.\n\n저장한 캡처·녹화 위치: ", "Highlight: a ring around the pointer and left/right click marks\nControl+scroll: up larger, down smaller (spot, then dim circle, then pointer)\nZoom: live magnifier, choose 1.5× to 5×\nPen: 3 colors and a color wheel, width slider, undo, clear\nTimer: 1 to 60 minute countdown. Type minutes; drag the clock to move it, drag its corner to resize\nCapture: grab an area and write on it right away, paste, save, record\nSpot: drag a rectangle, circle or ellipse to mark it with a red line\n\n⌃⌥1 Highlight · 2 Zoom · 3 Pen · 4 Timer · 5 Capture · 6 Spot · 0 Hide bar\nEsc: back to normal use\nHold Option: clicks pass through while drawing\nDrag the toolbar to move it. At a side edge it stands up.\n\nSaved captures and recordings: ") + storage.capturesLabel
+      tr("강조: 커서 주변 링과 좌우 클릭 표시\nControl+스크롤: 위로 크게, 아래로 작게 (스팟 → 주변 어둡게 원 → 포인터 순서)\n돋보기: 커서 부근 실시간 확대, 1.5~5배 선택\n펜: 색 3개와 색상환 · 굵기 슬라이더(1~30) · 되돌리기 · 지우기\n타이머: 1~60분 카운트다운. 분 직접 입력, 시계는 끌어서 이동하고 모서리로 크기 조절\n캡처: 영역을 고르면 창 없이 바로 복사. 옆 ▾에서 저장·그림 붙이기·화면 녹화\n스팟: 사각·원·타원으로 드래그하면 빨간 선으로 표시. 선을 끌어 크기 조절, 바깥 클릭으로 완료\n\n⌃⌥1 강조 · 2 돋보기 · 3 펜 · 4 타이머 · 5 캡처 · 6 스팟\nEsc: 조작 모드로 돌아오기 (필기는 유지)\nOption을 누르는 동안: 필기 중 클릭·스크롤 통과\n도구막대는 버튼을 잡고 끌어도 어디든 옮겨져요. 왼쪽·오른쪽 끝에 닿으면 바로 세로로 서요. 눈 버튼이나 ⌃⌥0으로 숨길 수 있어요.\n\n저장한 캡처·녹화 위치: ", "Highlight: a ring around the pointer and left/right click marks\nControl+scroll: up larger, down smaller (spot, then dim circle, then pointer)\nZoom: live magnifier, choose 1.5× to 5×\nPen: 3 colors and a color wheel, width slider, undo, clear\nTimer: 1 to 60 minute countdown. Type minutes; drag the clock to move it, drag its corner to resize\nCapture: select an area to copy without a preview. Use ▾ for save, pin, or recording\nSpot: drag a rectangle, circle or ellipse to mark it with a red line\n\n⌃⌥1 Highlight · 2 Zoom · 3 Pen · 4 Timer · 5 Capture · 6 Spot · 0 Hide bar\nEsc: back to normal use\nHold Option: clicks pass through while drawing\nDrag the toolbar to move it. At a side edge it stands up.\n\nSaved captures and recordings: ") + storage.capturesLabel
     )
   }
   func showMessage(_ title: String, _ text: String) {

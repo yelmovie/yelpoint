@@ -41,7 +41,7 @@ final class OverlayView: NSView {
     guard let c = controller else { return }
     // A truly zero-alpha panel can be skipped during WindowServer hit testing.
     // Only drawing mode installs this nearly transparent input surface.
-    if (c.pen && !c.passthrough || c.spotEditing) && !c.toolsSuspended {
+    if (c.pen && !c.capturePenOnly && !c.passthrough || c.spotEditing) && !c.toolsSuspended {
       NSColor.white.withAlphaComponent(0.01).setFill()
       dirtyRect.fill()
     }
@@ -178,7 +178,7 @@ final class OverlayView: NSView {
     hint.draw(at: CGPoint(x: pill.minX + 20, y: pill.midY - size.height / 2), withAttributes: attributes)
   }
   override func resetCursorRects() {
-    if controller?.pen == true || controller?.selecting == true
+    if controller.map({ $0.pen && !$0.capturePenOnly }) == true || controller?.selecting == true
       || controller?.spotEditing == true
     { addCursorRect(bounds, cursor: .crosshair) }
   }
@@ -193,7 +193,7 @@ final class OverlayView: NSView {
       c.spotMouseDown(display: screen.displayID, at: convert(event.locationInWindow, from: nil))
       return
     }
-    guard let c = controller, c.pen, !c.passthrough, !c.toolsSuspended else { return }
+    guard let c = controller, c.pen, !c.capturePenOnly, !c.passthrough, !c.toolsSuspended else { return }
     let local = convert(event.locationInWindow, from: nil)
     let global = CGPoint(x: screen.frame.minX + local.x, y: screen.frame.minY + local.y)
     if let (window, handle) = c.stickerHandle(at: global) {

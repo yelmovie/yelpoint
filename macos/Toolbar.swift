@@ -17,6 +17,10 @@ class ActionButton: NSButton {
 
 final class ToolButton: NSButton {
   var callback: (() -> Void)?
+  var secondaryCallback: (() -> Void)?
+  override func rightMouseDown(with event: NSEvent) {
+    if let secondaryCallback { secondaryCallback() } else { super.rightMouseDown(with: event) }
+  }
   /// Toolbar buttons cover nearly the whole bar, so a drag that starts on one moves the bar.
   weak var dragHost: DockView?
   var symbol: String { didSet { needsDisplay = true } }
@@ -87,8 +91,8 @@ final class DockView: NSView {
   weak var controller: AppController?
   var buttons: [String: ToolButton] = [:]
   // Slim: just enough room for the buttons and the © line under the power button.
-  static let wide = CGSize(width: 866, height: 56)
-  static let standing = CGSize(width: 92, height: 536)
+  static let wide = CGSize(width: 910, height: 56)
+  static let standing = CGSize(width: 114, height: 536)
   private var homes: [String: CGRect] = [:]
   private(set) var vertical = false
   private var pressed = CGPoint.zero
@@ -101,25 +105,40 @@ final class DockView: NSView {
     layer?.cornerRadius = 18
     for (name, title, symbol, x, w) in [
       ("highlight", tr("강조", "Highlight"), "cursorarrow", 20.0, 84.0),
-      ("zoom", tr("돋보기", "Zoom"), "magnifyingglass", 106.0, 86.0), ("pen", tr("펜", "Pen"), "pencil", 194.0, 64.0),
-      ("timer", tr("타이머", "Timer"), "timer", 260.0, 86.0), ("capture", tr("캡처", "Capture"), "camera.viewfinder", 348.0, 88.0),
-      ("spot", tr("스팟", "Spot"), "circle.dashed", 438.0, 76.0),
-      ("phone", tr("폰", "Phone"), "candybarphone", 516.0, 70.0),
-      ("qr", "QR", "qrcode", 588.0, 60.0),
-      ("board", tr("칠판", "Board"), "rectangle.and.pencil.and.ellipsis", 650.0, 70.0),
-      ("settings", "", "slider.horizontal.3", 732.0, 38.0),
-      ("hide", "", "eye.slash", 772.0, 38.0),
-      ("quit", "", "power", 812.0, 38.0),
+      ("zoom", tr("돋보기", "Zoom"), "magnifyingglass", 106.0, 86.0), ("pen", tr("펜", "Pen"), "pencil", 194.0, 86.0),
+      ("timer", tr("타이머", "Timer"), "timer", 282.0, 86.0), ("capture", tr("캡처", "Capture"), "camera.viewfinder", 370.0, 110.0),
+      ("spot", tr("스팟", "Spot"), "circle.dashed", 482.0, 76.0),
+      ("phone", tr("폰", "Phone"), "candybarphone", 560.0, 70.0),
+      ("qr", "QR", "qrcode", 632.0, 60.0),
+      ("board", tr("칠판", "Board"), "rectangle.and.pencil.and.ellipsis", 694.0, 70.0),
+      ("settings", "", "slider.horizontal.3", 776.0, 38.0),
+      ("hide", "", "eye.slash", 816.0, 38.0),
+      ("quit", "", "power", 856.0, 38.0),
     ] {
       // The three icon buttons sit higher and shorter, leaving the © line under the power button.
       let icon = ["settings", "hide", "quit"].contains(name)
       let b = ToolButton(
         frame: CGRect(x: x, y: icon ? 18 : 6, width: w, height: icon ? 34 : 44), title: title, symbol: symbol
-      ) { [weak controller] in name == "quit" ? controller?.quit() : controller?.toggle(name) }
+      ) { [weak controller] in
+        guard let controller else { return }
+        if name == "quit" { controller.quit() }
+        else if name == "pen" { controller.toggle("pen") }
+        else if name == "capture" {
+          if controller.selecting { controller.returnToPointer() } else { controller.beginSelection() }
+        } else { controller.toggle(name) }
+      }
       b.dragHost = self
       buttons[name] = b
       homes[name] = b.frame
       if name == "settings" { b.setAccessibilityLabel(tr("간단 설정", "Settings")) }
+      if name == "capture" {
+        b.toolTip = tr("클릭: 영역 캡처 후 바로 복사 (⌃⌥5) · 옆 ▾: 녹화·저장 메뉴", "Click: capture and copy (⌃⌥5) · ▾: recording and save menu")
+        b.secondaryCallback = { [weak controller] in controller?.toggle("capture") }
+      }
+      if name == "pen" {
+        b.toolTip = tr("클릭: 펜 켜기·끄기 · 옆 ▾: 색·굵기 설정 열기·닫기", "Click: toggle pen · ▾: show or hide color and width")
+        b.secondaryCallback = { [weak controller] in controller?.togglePenOptions() }
+      }
       if name == "board" { b.toolTip = tr("분필로 쓰는 큰 칠판", "A big chalkboard to draw and write on") }
       if name == "qr" { b.toolTip = tr("주소를 QR 코드로 크게 보여 주기", "Show an address as a big QR code") }
       if name == "phone" { b.toolTip = tr("안드로이드 폰·태블릿 화면과 실물화상기", "Android phone or tablet screen and document camera") }
@@ -133,6 +152,17 @@ final class DockView: NSView {
       }
       addSubview(b)
     }
+    for name in ["pen", "capture"] {
+      let button = ToolButton(frame: .zero, title: "", symbol: "chevron.down") { [weak controller] in
+        if name == "pen" { controller?.togglePenOptions() } else { controller?.toggle("capture") }
+      }
+      button.setAccessibilityLabel(name == "pen" ? tr("펜 색과 굵기", "Pen color and width") : tr("캡처와 녹화 메뉴", "Capture and recording menu"))
+      button.toolTip = name == "pen" ? tr("펜 색·굵기", "Pen color and width") : tr("녹화·저장·그림 붙이기", "Record, save or pin an image")
+      button.dragHost = self
+      buttons[name + "Options"] = button
+      addSubview(button)
+    }
+    layoutTools(vertical: false)
     let menu = NSMenu()
     let help = NSMenuItem(
       title: tr("사용법과 단축키", "How to Use"), action: #selector(AppController.showHelp), keyEquivalent: "")
@@ -153,16 +183,23 @@ final class DockView: NSView {
     for (i, name) in ["highlight", "zoom", "pen", "timer", "capture", "spot", "phone", "qr", "board"].enumerated() {
       buttons[name]?.frame =
         vertical
-        ? CGRect(x: 6, y: DockView.standing.height - 14 - CGFloat(i + 1) * 45, width: 80, height: 43)
+        ? CGRect(x: 6, y: DockView.standing.height - 14 - CGFloat(i + 1) * 45, width: 102, height: 43)
         : homes[name] ?? .zero
+    }
+    for name in ["pen", "capture"] {
+      if let main = buttons[name] {
+        let full = main.frame
+        main.frame.size.width -= 22
+        buttons[name + "Options"]?.frame = CGRect(x: full.maxX - 22, y: full.minY, width: 22, height: full.height)
+      }
     }
     // Standing up, settings and hide share a row and quit gets the bottom row to itself.
     buttons["settings"]?.frame =
-      vertical ? CGRect(x: 6, y: 66, width: 38, height: 40) : homes["settings"] ?? .zero
+      vertical ? CGRect(x: 17, y: 66, width: 38, height: 40) : homes["settings"] ?? .zero
     buttons["hide"]?.frame =
-      vertical ? CGRect(x: 48, y: 66, width: 38, height: 40) : homes["hide"] ?? .zero
+      vertical ? CGRect(x: 59, y: 66, width: 38, height: 40) : homes["hide"] ?? .zero
     buttons["quit"]?.frame =
-      vertical ? CGRect(x: 27, y: 22, width: 38, height: 38) : homes["quit"] ?? .zero
+      vertical ? CGRect(x: 38, y: 22, width: 38, height: 38) : homes["quit"] ?? .zero
     needsDisplay = true
   }
   // Moved here rather than by the window server, so the bar can change shape mid-drag.
@@ -200,11 +237,11 @@ final class DockView: NSView {
   override func draw(_ dirtyRect: NSRect) {
     NSColor.white.withAlphaComponent(0.18).setFill()
     (vertical
-      ? CGRect(x: 12, y: 111, width: 68, height: 1) : CGRect(x: 726, y: 17, width: 1, height: 22))
+      ? CGRect(x: 12, y: 111, width: 90, height: 1) : CGRect(x: 770, y: 17, width: 1, height: 22))
       .fill()
     NSColor.white.withAlphaComponent(0.4).setFill()
     (DockView.creditLabel as NSString).draw(at: creditRect.origin, withAttributes: DockView.creditAttributes)
-    let columns: [CGFloat] = vertical ? [39, 45, 51] : [8, 13]
+    let columns: [CGFloat] = vertical ? [50, 56, 62] : [8, 13]
     let rows: [CGFloat] = vertical ? [bounds.maxY - 10, bounds.maxY - 5] : [21, 27, 33]
     for x in columns {
       for y in rows {
@@ -780,7 +817,7 @@ final class CaptureView: NSView {
     layer?.backgroundColor = Look.dock.cgColor
     layer?.cornerRadius = 14
     let items: [(String, String, String, (AppController) -> Void)] = [
-      (tr("다시 캡처", "Capture"), "viewfinder", tr("드래그해서 영역 캡처", "Drag to capture an area"), { $0.beginSelection() }),
+      (tr("사진 캡처", "Photo"), "viewfinder", tr("드래그해서 영역 캡처 (⌃⌥5)", "Drag to capture an area (⌃⌥5)"), { $0.beginSelection() }),
       (tr("그림 붙이기", "Paste"), "doc.on.clipboard", tr("복사한 그림을 화면에 띄우기", "Show the copied picture on screen"), { $0.pasteSticker() }),
       (tr("PNG 저장", "Save PNG"), "square.and.arrow.down", tr("마지막 캡처를 PNG로 저장", "Save the last capture as PNG"), { $0.saveCapture() }),
       (tr("화면 녹화", "Record"), "record.circle", tr("화면 녹화 시작·정지", "Start or stop recording"), { $0.toggleRecording() }),

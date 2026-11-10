@@ -287,6 +287,8 @@ final class StickerView: NSView {
   let image: NSImage
   /// Ink and typed notes on this image. They move with it and are saved and copied with it.
   private(set) var strokes: [InkStroke] = []
+  private(set) var activeStroke: InkStroke?
+  private var drawingInput = false
   struct Note {
     let text: String
     let origin: CGPoint
@@ -362,6 +364,7 @@ final class StickerView: NSView {
     editor = nil
     let text = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
     field.removeFromSuperview()
+    window?.resignKey()
     if !text.isEmpty, let color = field.textColor {
       notes.append(Note(text: text, origin: CGPoint(x: field.frame.minX + 2, y: field.frame.minY + 2), color: color, size: 24))
       order.append(true)
@@ -399,14 +402,55 @@ final class StickerView: NSView {
     gripFrame = grip.frame
   }
   required init?(coder: NSCoder) { fatalError() }
-  override var mouseDownCanMoveWindow: Bool { true }
+  override var mouseDownCanMoveWindow: Bool { controller?.drawingOnCaptures != true }
+  override var needsPanelToBecomeKey: Bool { false }
   override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+  func updateDrawingInput() {
+    let enabled = controller?.drawingOnCaptures == true
+    guard drawingInput != enabled else { return }
+    drawingInput = enabled
+    window?.invalidateCursorRects(for: self)
+  }
+  override func resetCursorRects() {
+    if controller?.drawingOnCaptures == true { addCursorRect(bounds, cursor: .crosshair) }
+  }
+  override func mouseDown(with event: NSEvent) {
+    guard let c = controller, c.drawingOnCaptures else {
+      super.mouseDown(with: event)
+      return
+    }
+    commitNote()
+    c.colorPanel.orderOut(nil)
+    activeStroke = InkStroke(
+      points: [convert(event.locationInWindow, from: nil)], color: c.inkColor,
+      width: c.preferences.penWidth, created: ProcessInfo.processInfo.systemUptime, expires: false)
+    needsDisplay = true
+  }
+  override func mouseDragged(with event: NSEvent) {
+    guard activeStroke != nil else { super.mouseDragged(with: event); return }
+    let p = convert(event.locationInWindow, from: nil)
+    if let last = activeStroke?.points.last, hypot(last.x - p.x, last.y - p.y) < 0.8 { return }
+    activeStroke?.points.append(p)
+    needsDisplay = true
+  }
+  override func mouseUp(with event: NSEvent) {
+    guard activeStroke != nil else { super.mouseUp(with: event); return }
+    finishStroke()
+  }
+  func finishStroke(notify: Bool = true) {
+    guard let stroke = activeStroke else { return }
+    activeStroke = nil
+    addStroke(stroke)
+    controller?.undoHistory.append(.sticker(self))
+    controller?.clip(self)
+    if notify { controller?.refreshTools() }
+  }
   override func draw(_ dirtyRect: NSRect) {
     image.draw(in: bounds)
     drawStrokes()
   }
   private func drawStrokes() {
-    for stroke in strokes {
+    for stroke in strokes + (activeStroke.map { [$0] } ?? []) {
       guard let start = stroke.points.first else { continue }
       let path = NSBezierPath()
       path.lineWidth = stroke.width
@@ -507,6 +551,8 @@ extension AppController {
   }
   func beginSelection() {
     guard !toolsSuspended, ensureScreenAccess() else { return }
+    captureGeneration += 1
+    hideHalo = false
     finishStrokes()
     pen = false
     zoom = false
@@ -528,8 +574,6 @@ extension AppController {
     guard rect.width >= 4, rect.height >= 4 else {
       refreshTools()
       invalidateAll()
-      present(capturePanel)
-      refreshTools()
       return
     }
     hideHalo = true
@@ -537,38 +581,33 @@ extension AppController {
     refreshTools()
     for (_, view) in overlays { view.display() }
     let ids = controlWindowIDs
+    let generation = captureGeneration
     Task { @MainActor [weak self] in
       try? await Task.sleep(nanoseconds: 80_000_000)
       do {
         let image = try await ScreenGrab.capture(screen: screen, rect: rect, excluding: ids)
-        guard let self else { return }
+        guard let self, self.captureGeneration == generation else { return }
         self.hideHalo = false
         self.store(
           image, scale: screen.backingScaleFactor,
           frame: rect.offsetBy(dx: screen.frame.minX, dy: screen.frame.minY))
       } catch {
-        guard let self else { return }
+        guard let self, self.captureGeneration == generation else { return }
         self.hideHalo = false
         self.invalidateAll()
         self.showMessage(tr("캡처하지 못했어요", "Could not capture"), error.localizedDescription)
       }
     }
   }
-  /// The capture stays pinned where it was taken with the pen ready, so writing on it is immediate.
+  /// Copy immediately without opening a preview or entering drawing mode.
   func store(_ image: CGImage, scale: CGFloat, frame: CGRect? = nil) {
     lastCapture = image
     let size = CGSize(width: CGFloat(image.width) / scale, height: CGFloat(image.height) / scale)
-    NSPasteboard.general.clearContents()
-    NSPasteboard.general.writeObjects([NSImage(cgImage: image, size: size)])
-    guard let frame else {
-      present(capturePanel)
-      refreshTools()
-      toast(tr("캡처해서 복사했어요", "Captured and copied"))
-      return
+    let copied = ImageClipboard.write(image, size: size)
+    invalidateAll()
+    if !copied {
+      toast(tr("복사하지 못했어요. 캡처 옆 ▾에서 PNG로 저장할 수 있어요.", "Could not copy. Use ▾ beside Capture to save as PNG."))
     }
-    addSticker(NSImage(cgImage: image, size: size), at: frame)
-    if !pen { toggle("pen") }
-    toast(tr("캡처해서 복사했어요 · ⌘V로 바로 붙여넣거나 위에 필기할 수 있어요", "Captured and copied · paste with ⌘V or write on it"))
   }
   /// Hands a finished stroke that began on a pinned image over to that image.
   func adoptStroke(_ stroke: InkStroke, from screen: NSScreen) -> Bool {
@@ -609,6 +648,8 @@ extension AppController {
     let window = panel(size: size, level: .statusBar, typing: true)
     window.hasShadow = true
     window.isMovableByWindowBackground = true
+    // Drawing must not steal the lesson app's keyboard; only a text field needs it.
+    window.becomesKeyOnlyIfNeeded = true
     let view = StickerView(image: image, size: size) { [weak self, weak window] in
       if let window { self?.removeSticker(window) }
     }
@@ -726,17 +767,22 @@ extension AppController {
   /// Keeps the clipboard on the image with its ink, so ⌘V always pastes what is on screen.
   func clip(_ view: StickerView) {
     guard let merged = view.composite() else { return }
-    NSPasteboard.general.clearContents()
-    NSPasteboard.general.writeObjects([NSImage(cgImage: merged, size: view.bounds.size)])
+    ImageClipboard.write(merged, size: view.bounds.size)
   }
-  /// The image with its ink. The pen goes off so the next click reaches the app to paste into.
+  /// Copy keeps drawing ready on the image and leaves other apps clickable.
   @discardableResult func copySticker(_ view: StickerView, announce: Bool = true) -> Bool {
+    finishStrokes()
+    view.commitNote()
     guard let merged = view.composite() else { return false }
-    NSPasteboard.general.clearContents()
-    NSPasteboard.general.writeObjects([NSImage(cgImage: merged, size: view.bounds.size)])
-    if pen { toggle("pen") }
+    guard ImageClipboard.write(merged, size: view.bounds.size) else { return false }
+    if pen {
+      capturePenOnly = true
+      refreshTools()
+      invalidateAll()
+    }
+    view.window?.resignKey()
     if announce {
-      toast(tr("복사했어요 · 붙여넣을 곳을 클릭하고 ⌘V", "Copied · click where it goes, then ⌘V"))
+      toast(tr("필기까지 복사했어요 · 그림 밖을 클릭하고 ⌘V · 계속 필기할 수 있어요", "Copied with ink · click outside and ⌘V · keep drawing anytime"))
     }
     return true
   }
@@ -790,13 +836,30 @@ extension AppController {
     }
   }
   func toggleRecording() {
+    guard !recordingStartPending else { return }
     if recorder != nil {
       stopRecording()
       return
     }
-    guard !toolsSuspended, ensureScreenAccess(), let screen = toolbar.screen ?? NSScreen.main else {
-      return
+    guard !toolsSuspended, let screen = toolbar.screen ?? NSScreen.main else { return }
+    recordingStartPending = true
+    defer { recordingStartPending = false }
+    // Keep this exact display for start(), even if focus or the toolbar moves in the dialog.
+    // Consent precedes screen/microphone permission requests and recording file creation.
+    let notice = NSAlert()
+    notice.messageText = tr("화면 녹화를 시작할까요?", "Start screen recording?")
+    notice.informativeText = tr(
+      "‘\(screen.localizedName)’ 모니터 한 개의 전체 화면을 녹화해요. 선택 영역만 녹화하는 기능이 아니에요. 화면에 보이는 개인정보와 알림을 먼저 확인해 주세요.\n\n마이크 권한을 허용하면 기본 마이크로 목소리와 주변 소리도 함께 녹음해요. 권한이 없거나 마이크를 사용할 수 없으면 소리 없이 녹화해요. 컴퓨터의 재생음은 직접 녹음하지 않아요.",
+      "The entire ‘\(screen.localizedName)’ monitor will be recorded, not just a selected area. Check for personal information and notifications on that screen first.\n\nIf microphone access is allowed, the default microphone also records your voice and nearby sounds. Recording is silent if permission is denied or the microphone is unavailable. Computer playback audio is not captured directly.")
+    notice.addButton(withTitle: tr("녹화 시작", "Start Recording"))
+    notice.addButton(withTitle: tr("취소", "Cancel")).keyEquivalent = "\u{1b}"
+    var choice = NSApplication.ModalResponse.alertSecondButtonReturn
+    withToolsSuspended {
+      takeFocus()
+      choice = notice.runModal()
+      giveFocusBack()
     }
+    guard choice == .alertFirstButtonReturn, ensureScreenAccess() else { return }
     do {
       try FileManager.default.createDirectory(at: capturesFolder, withIntermediateDirectories: true)
     } catch {
