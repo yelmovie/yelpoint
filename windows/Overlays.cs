@@ -102,7 +102,7 @@ internal sealed class InkWindow:LayeredForm {
             foreach(var stroke in Strokes)stroke.Draw(g,app.Now);if(Active!=null)Active.Draw(g,Active.Created);
             if(app.SpotView==this&&app.SpotArea.HasValue){using(var path=new GraphicsPath())using(var p=new Pen(Look.SpotLine,3*k)){app.AddSpot(path);g.DrawPath(p,path);}}
             if(app.Selecting){using(var path=new GraphicsPath(FillMode.Alternate)){path.AddRectangle(new Rectangle(0,0,Width,Height));if(Selection.HasValue)path.AddRectangle(Selection.Value);using(var b=new SolidBrush(Color.FromArgb(72,0,0,0)))g.FillPath(b,path);}if(Selection.HasValue)using(var p=new Pen(Look.Lime,2*k))g.DrawRectangle(p,Selection.Value);
-                if(!Selection.HasValue)Hint(g,Look.Tr("드래그해서 캡처할 영역을 고르세요 · 한 번 클릭하면 붙이기·저장·녹화 메뉴 · Esc 취소","Drag to choose an area to capture · Click once for paste, save and record · Esc to cancel"),k);}
+                if(!Selection.HasValue)Hint(g,Look.Tr("드래그해서 캡처 · 바로 클립보드에 복사 · Esc 취소","Drag to capture · copied straight to the clipboard · Esc to cancel"),k);}
             // Picking a shape changes nothing on screen until a drag, so say what to do.
             if(app.SpotEditing&&!app.SpotDragging)Hint(g,app.SpotArea.HasValue?Look.Tr("빨간 선을 끌면 크기 조절 · 안쪽을 끌면 이동 · 바깥 클릭이나 Esc로 완료","Drag the red line to resize · drag inside to move · click outside or Esc when done"):Look.Tr("드래그해서 보여 줄 곳을 그리세요 · Esc 취소","Drag to draw the spot · Esc to cancel"),k);
         }

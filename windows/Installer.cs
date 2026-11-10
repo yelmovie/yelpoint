@@ -16,8 +16,8 @@ using Microsoft.Win32.SafeHandles;
 [assembly: AssemblyDescription("YelPoint Setup")]
 [assembly: AssemblyProduct("YelPoint")]
 [assembly: AssemblyCopyright("© yelsam.lab")]
-[assembly: AssemblyVersion("1.0.0.0")]
-[assembly: AssemblyFileVersion("1.0.0.0")]
+[assembly: AssemblyVersion("1.0.3.0")]
+[assembly: AssemblyFileVersion("1.0.3.0")]
 
 namespace YelPointSetup {
 // Setup runs before the app has a language setting, so it follows Windows.

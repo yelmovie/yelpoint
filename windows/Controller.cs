@@ -14,6 +14,10 @@ namespace YelPoint {
 internal sealed class Controller:ApplicationContext {
     public Preferences Preferences;
     public bool Pen,Zoom,Passthrough,Exiting,Selecting;
+    // Capture ink belongs to the pinned images. Other apps remain clickable while this pen stays on.
+    public bool CapturePen;
+    public bool PenOptionsOpen{get;private set;}
+    bool pendingPanelDismiss;
     public readonly Countdown Countdown=new Countdown();
     public TimerForm TimerPanel;
     public CaptureForm CaptureBar;
@@ -139,7 +143,7 @@ internal sealed class Controller:ApplicationContext {
         var area=Screen.FromControl(Toolbar).WorkingArea;var bar=Toolbar.Bounds;bool vertical=Toolbar.Vertical;int gap=Toolbar.S(4);
         // Standing bar: every panel stands too, in a narrow column (96-DPI widths, as on the Mac). The settings card already does.
         // Each attaches like a magnet beside or above the button that opened it.
-        var panels=new FloatingForm[]{Penbar,Settings,TimerPanel,CaptureBar,SpotBar,ZoomBar,PhoneBar,QrBar};var openers=new ToolButton[]{Toolbar.Pen,Toolbar.Settings,Toolbar.Clock,Toolbar.Grab,Toolbar.SpotButton,Toolbar.Zoom,Toolbar.PhoneButton,Toolbar.QrButton};int[] columns={140,0,140,116,102,128,212,232};
+        var panels=new FloatingForm[]{Penbar,Settings,TimerPanel,CaptureBar,SpotBar,ZoomBar,PhoneBar,QrBar};var openers=new ToolButton[]{Toolbar.PenOptions,Toolbar.Settings,Toolbar.Clock,Toolbar.CaptureOptions,Toolbar.SpotButton,Toolbar.Zoom,Toolbar.PhoneButton,Toolbar.QrButton};int[] columns={140,0,140,116,102,128,212,232};
         for(int i=0;i<panels.Length;i++){
             if(columns[i]>0)panels[i].Stack(vertical,columns[i]);var b=openers[i].Bounds;var opener=new Rectangle(bar.Left+b.Left,bar.Top+b.Top,b.Width,b.Height);
             panels[i].MoveTo(vertical?Look.SideOrigin(bar,panels[i].Size,area,gap,opener):Look.ChildOrigin(bar,panels[i].Size,area,gap,opener));
@@ -155,10 +159,17 @@ internal sealed class Controller:ApplicationContext {
         child.SlideIn(Toolbar.Vertical?new Size(home.Left+home.Width/2>bar.Left+bar.Width/2?-step:step,0):new Size(0,home.Top+home.Height/2<bar.Top+bar.Height/2?step:-step),true);
         child.Show();
     }
+    public void TogglePenOptions(){
+        if(Exiting||modal)return;bool open=!PenOptionsOpen;Finish();HidePanels();
+        PenOptionsOpen=open;RefreshTools();DirtyInk();
+    }
+    // The main camera is one click to select. Recording and less-used actions live under its arrow.
+    public void QuickCapture(){if(Recording)ToggleRecording();else BeginSelection();}
+    public void CloseToolPanels(){if(Exiting||modal)return;HidePanels();RefreshTools();}
     public void Toggle(string name){
         if(Exiting||modal)return;
         if(name=="highlight"){Preferences.Highlight=!Preferences.Highlight;Save();}
-        else if(name=="pen"){Finish();Pen=!Pen;if(Pen){StopZoom();RaiseOverlays();}HidePanels();}
+        else if(name=="pen"){Finish();Pen=!Pen;CapturePen=false;if(Pen){StopZoom();RaiseOverlays();}HidePanels();}
         else if(name=="zoom"){
             if(Zoom)StopZoom();else if(!magAvailable)Message(Look.Tr("돋보기를 시작하지 못했어요","Could not start the magnifier"),Look.Tr("이 Windows에서 확대 기능을 시작할 수 없어요. 강조와 펜은 사용할 수 있어요.","Magnification is not available on this Windows. Highlight and Pen still work."));
             else{Finish();Pen=false;HidePanels();lens=new LensWindow(Preferences.Zoom);lens.Show();if(!lens.Ready||!UpdateExclusions()){lens.Dispose();lens=null;Message(Look.Tr("돋보기를 시작하지 못했어요","Could not start the magnifier"),Look.Tr("Windows 확대 기능을 만들지 못했어요. 앱을 다시 실행해 주세요.","Could not create the Windows magnifier. Please restart the app."));}else{Zoom=true;}}
@@ -167,15 +178,15 @@ internal sealed class Controller:ApplicationContext {
         else if(name=="timer"){if(TimerPanel.Visible)TimerPanel.Hide();else{Finish();Pen=false;HidePanels();TimerPanel.Sync();Present(TimerPanel);}}
         else if(name=="hide")SetToolbarHidden(!Preferences.ToolbarHidden);
         else if(name=="spot"){if(SpotBar.Visible){EditShape=null;SpotBar.Hide();}else{Finish();Pen=false;HidePanels();Present(SpotBar);}}
-        // Straight into choosing an area. A click without dragging opens the capture bar instead.
-        else if(name=="capture"){if(Selecting){Selecting=false;SelectionCursor(false);DirtyInk();}else if(CaptureBar.Visible)CaptureBar.Hide();else{BeginSelection();return;}}
+        // Show still capture and video recording together, rather than hiding recording behind an extra click.
+        else if(name=="capture"){if(CaptureBar.Visible)CaptureBar.Hide();else{Finish();HidePanels();StopZoom();CaptureBar.Sync();Present(CaptureBar);}}
         else if(name=="board"){if(BoardOpen)CloseBoard();else OpenBoard();}
         else if(name=="qr"){if(QrBar.Visible||QrShowing)CloseQr();else{Finish();Pen=false;HidePanels();QrBar.Field.Text=Preferences.QrText??"";Present(QrBar);QrBar.RememberForeground();QrBar.Activate();QrBar.Field.Focus();QrBar.Field.SelectAll();}}
         else if(name=="phone"){if(PhoneBar.Visible)PhoneBar.Hide();else{Finish();Pen=false;HidePanels();PhoneBar.Sync();Present(PhoneBar);}}
         RefreshTools();DirtyInk();
     }
-    public void Hotkey(int id){if(Exiting||modal)return;if(id==99){Finish();Pen=false;StopZoom();HidePanels();qrWindow.Hide();RefreshTools();DirtyInk();}else if(id>=1&&id<=7)Toggle(new[]{"highlight","zoom","pen","timer","capture","spot","hide"}[id-1]);}
-    void HidePanels(){if(Selecting)SelectionCursor(false);Selecting=false;EditShape=null;spotAction=SpotAction.None;foreach(var view in Ink)view.Selection=null;Settings.Hide();TimerPanel.Hide();CaptureBar.Hide();SpotBar.Hide();PhoneBar.Hide();QrBar.Hide();DirtyInk();}
+    public void Hotkey(int id){if(Exiting||modal)return;if(id==99){Finish();Pen=false;StopZoom();HidePanels();qrWindow.Hide();RefreshTools();DirtyInk();}else if(id==5){BeginSelection();}else if(id>=1&&id<=7)Toggle(new[]{"highlight","zoom","pen","timer","capture","spot","hide"}[id-1]);}
+    void HidePanels(){pendingPanelDismiss=false;PenOptionsOpen=false;Penbar.Hide();ColorBar.Hide();if(Selecting)SelectionCursor(false);Selecting=false;EditShape=null;spotAction=SpotAction.None;foreach(var view in Ink)view.Selection=null;Settings.Hide();TimerPanel.Hide();CaptureBar.Hide();SpotBar.Hide();PhoneBar.Hide();QrBar.Hide();DirtyInk();}
     public void BeginSpot(SpotShape shape){
         if(Exiting||modal)return;Finish();Pen=false;StopZoom();EditShape=shape;
         if(SpotArea.HasValue){spotShape=shape;if(shape==SpotShape.Circle){var r=SpotArea.Value;float side=Math.Max(r.Width,r.Height);SpotArea=new RectangleF(r.Left+r.Width/2-side/2,r.Top+r.Height/2-side/2,side,side);}}
@@ -237,15 +248,21 @@ internal sealed class Controller:ApplicationContext {
     public void ToggleRecording(){
         if(recorder!=null){StopRecording();return;}
         if(Exiting||modal)return;
+        // Ask before touching recording files or opening the microphone. Capture exactly the disclosed display.
+        var recordingBounds=Screen.FromControl(Toolbar).Bounds;
+        string recordingScope=recordingBounds.Width+" × "+recordingBounds.Height;
+        if(!Ask(Look.Tr("화면·마이크 녹화를 시작할까요?","Start screen and microphone recording?"),Look.Tr(
+            "도구막대가 있는 모니터 전체 ("+recordingScope+")를 녹화해요. 선택 영역만 녹화하는 것은 아니에요.\n\n사용 가능한 기본 마이크의 목소리와 주변 소리도 함께 녹음해요. 마이크를 사용할 수 없거나 오디오 준비에 실패하면 소리 없이 녹화될 수 있어요. 컴퓨터의 재생음은 직접 녹음하지 않아요.\n\n학생·다른 사람의 개인정보와 화면 내용을 확인해 주세요. 확인을 누르면 녹화를 시작하고, 취소하면 시작하지 않아요.",
+            "The entire display containing the toolbar ("+recordingScope+") will be recorded, not just a selected area.\n\nYour available default microphone will also record your voice and surrounding sounds. Recording may be silent if the microphone is unavailable or audio setup fails. Computer playback audio is not captured directly.\n\nCheck the screen for private information about students and other people. Choose OK to start, or Cancel to leave recording off."),cancelByDefault:true)||Exiting)return;
         string path;
         try{Directory.CreateDirectory(storage.CapturesPath);path=Path.Combine(storage.CapturesPath,Look.MediaName("mp4",DateTime.Now));}
         catch(IOException e){Message(Look.Tr("녹화를 시작하지 못했어요","Could not start recording"),Look.Tr("드라이브 연결과 저장 공간을 확인해 주세요.\n","Check the drive connection and free space.\n")+e.Message);return;}
         catch(UnauthorizedAccessException e){Message(Look.Tr("녹화를 시작하지 못했어요","Could not start recording"),Look.Tr("드라이브 연결과 저장 공간을 확인해 주세요.\n","Check the drive connection and free space.\n")+e.Message);return;}
         ScreenRecorder active=null;
-        active=new ScreenRecorder(Screen.FromControl(Toolbar).Bounds,path,
+        active=new ScreenRecorder(recordingBounds,path,
             sound=>QueueUI(()=>Toast(sound?Look.Tr("녹화 시작 · 마이크 켜짐","Recording · Mic on"):Look.Tr("녹화 시작 · 소리 없음","Recording · No sound"))),
-            error=>QueueUI(()=>{if(recorder==active){recorder=null;HideControlsFromCapture(false);RefreshTools();}if(error!=null)Message(Look.Tr("녹화를 저장하지 못했어요","Could not save the recording"),error);else{Toast(Look.Tr("녹화를 저장했어요 · data\\captures","Recording saved · data\\captures"));OfferSubtitles(path);}}));
-        recorder=active;HideControlsFromCapture(true);active.Start();RefreshTools();
+            error=>QueueUI(()=>{if(recorder==active){recorder=null;HideControlsFromCapture(false);RefreshTools();}if(error!=null)Message(Look.Tr("녹화를 저장하지 못했어요","Could not save the recording"),error);else{Toast(Look.Tr("녹화를 저장했어요 · data\\captures","Recording saved · data\\captures"));}}));
+        recorder=active;HidePanels();HideControlsFromCapture(true);active.Start();RefreshTools();
     }
     void StopRecording(){if(recorder==null)return;recorder.Stop();recorder=null;HideControlsFromCapture(false);RefreshTools();}
     public void ToggleColors(){if(ColorBar.Visible)ColorBar.Hide();else{ColorBar.Sync();PositionChildren();ColorBar.Show();}}
@@ -275,13 +292,14 @@ internal sealed class Controller:ApplicationContext {
     public void NoteAdded(StickerForm sticker){UndoHistory.Add(sticker);Clip(sticker);}
     // Keeps the clipboard on the image with its ink, so Ctrl+V always pastes what is on screen.
     public void Clip(StickerForm sticker){using(var merged=sticker.Composite()){try{Clipboard.SetImage(merged);}catch(ExternalException){}}}
-    // The image with its ink. The pen goes off so the next click reaches the app to paste into.
+    // Copy the finished image without switching off its pen. Capture-scoped drawing leaves other apps clickable.
     public bool CopySticker(StickerForm sticker,bool announce=true){
+        sticker.FinishStroke();sticker.FinishNote();
         using(var merged=sticker.Composite()){
             try{Clipboard.SetImage(merged);}
             catch(ExternalException e){Message(Look.Tr("클립보드에 복사하지 못했어요","Could not copy to the clipboard"),e.Message);return false;}
         }
-        if(Pen)Toggle("pen");
+        if(Pen&&!CapturePen){CapturePen=true;RefreshTools();}
         if(announce)Toast(Look.Tr("복사했어요 · 붙여넣을 곳을 클릭하고 Ctrl+V","Copied · click where it goes, then Ctrl+V"));
         return true;
     }
@@ -293,28 +311,35 @@ internal sealed class Controller:ApplicationContext {
         wait.Tick+=(s,e)=>{wait.Stop();wait.Dispose();if(Exiting)return;if(Form.ActiveForm!=null){Toast(Look.Tr("복사했어요 · 붙여넣을 곳을 클릭하고 Ctrl+V","Copied · click where it goes, then Ctrl+V"));return;}SendKeys.SendWait("^v");Toast(Look.Tr("붙여넣었어요","Pasted"));};
         wait.Start();
     }
-    public void FinishSelection(InkWindow view,Rectangle area){
+    // Phone Freeze explicitly asks for a fixed image to annotate; ordinary screenshots never use this path.
+    void PinCapturedImage(InkWindow view,Rectangle area){
+        if(lastCapture==null)return;float k=view.UiScale;int edge=Look.Px(2,k),both=Look.Px(4,k);
+        AddSticker((Image)lastCapture.Clone(),new Rectangle(view.Left+area.X-edge,view.Top+area.Y-edge,area.Width+both,area.Height+both),k);
+        Pen=true;CapturePen=true;RaiseOverlays();RefreshTools();
+    }
+    public void FinishSelection(InkWindow view,Rectangle area,bool pinForAnnotation=false){
         Selecting=false;SelectionCursor(false);pendingClicks.Clear();DirtyInk();RefreshTools();
-        if(area.Width<4||area.Height<4){Present(CaptureBar);RefreshTools();return;}
-        var controls=new Form[]{Toolbar,Penbar,Settings,TimerPanel,CaptureBar,SpotBar,ZoomBar,mini,halo,PhoneBar,QrBar}.Concat(StickerBars).Where(f=>f.Visible).ToArray();foreach(var f in controls)f.Hide();
-        var image=new Bitmap(area.Width,area.Height,PixelFormat.Format32bppArgb);bool stored=false,copied=true;
+        if(area.Width<4||area.Height<4)return;
+        var controls=new Form[]{Toolbar,Penbar,Settings,TimerPanel,CaptureBar,ColorBar,SpotBar,ZoomBar,mini,halo,PhoneBar,QrBar}.Concat(StickerBars).Where(f=>f.Visible).ToArray();foreach(var f in controls)f.Hide();
+        Bitmap image=null;bool stored=false,copied=true;Exception captureError=null;
         try{
+            image=new Bitmap(area.Width,area.Height,PixelFormat.Format32bppArgb);
             System.Threading.Thread.Sleep(80);
             // CaptureBlt keeps the layered ink and timer windows in the image.
             using(var g=Graphics.FromImage(image))g.CopyFromScreen(view.Left+area.X,view.Top+area.Y,0,0,area.Size,CopyPixelOperation.SourceCopy|CopyPixelOperation.CaptureBlt);
-            // A busy clipboard must not lose the capture: it is still pinned below.
+            // Keep the last capture in memory even if another app has locked the clipboard.
             try{Clipboard.SetImage(image);}catch(ExternalException){copied=false;}
             if(lastCapture!=null)lastCapture.Dispose();lastCapture=image;stored=true;
         }
-        catch(System.ComponentModel.Win32Exception e){foreach(var f in controls)f.Show();Message(Look.Tr("캡처하지 못했어요","Could not capture"),e.Message);return;}
-        finally{if(!stored)image.Dispose();}
-        // The capture stays pinned where it was taken with the pen ready, so writing on it is immediate.
-        // Its frame follows the DPI of the display it was taken on, and the image stays at 1:1 pixels.
-        foreach(var f in controls)f.Show();float k=view.UiScale;int edge=Look.Px(2,k),both=Look.Px(4,k);
-        AddSticker((Image)image.Clone(),new Rectangle(view.Left+area.X-edge,view.Top+area.Y-edge,area.Width+both,area.Height+both),k);
-        if(!Pen)Toggle("pen");else RefreshTools();
-        Toast(copied?Look.Tr("캡처해서 복사했어요 · Ctrl+V로 바로 붙여넣거나 위에 필기할 수 있어요","Captured and copied · paste with Ctrl+V or write on it"):Look.Tr("캡처해서 붙였어요 · 클립보드에는 복사하지 못했어요. 오른쪽 클릭 → 복사하기로 다시 해 보세요","Captured and pinned · could not copy it. Right-click → Copy to try again"));
+        catch(Exception e) when(e is System.ComponentModel.Win32Exception||e is ExternalException||e is ArgumentException||e is OutOfMemoryException){captureError=e;}
+        finally{if(!stored&&image!=null)image.Dispose();foreach(var f in controls)if(!f.IsDisposed)f.Show();}
+        if(captureError!=null){Message(Look.Tr("캡처하지 못했어요","Could not capture"),captureError.Message);return;}
+        if(pinForAnnotation){PinCapturedImage(view,area);return;}
+        // A normal capture is a clipboard action, never a new window or a drawing-mode switch.
+        Pen=false;CapturePen=false;RefreshTools();
+        Toast(copied?Look.Tr("복사했어요 · Ctrl+V","Copied · Ctrl+V"):Look.Tr("복사하지 못했어요 · 캡처 ▾ → 저장으로 그림을 보관할 수 있어요","Could not copy · Capture ▾ → Save keeps the image"));
     }
+
     // Hands a finished stroke that began on a pinned image over to that image.
     public bool AdoptStroke(InkWindow view,Stroke stroke){
         if(stroke.Points.Count==0)return false;var start=new Point(view.Left+(int)stroke.Points[0].X,view.Top+(int)stroke.Points[0].Y);
@@ -329,7 +354,8 @@ internal sealed class Controller:ApplicationContext {
         try{if(!Clipboard.ContainsImage()){Message(Look.Tr("붙일 이미지가 없어요","No image to paste"),Look.Tr("먼저 영역을 캡처하거나 이미지를 복사해 주세요.","Capture an area or copy an image first."));return;}image=Clipboard.GetImage();}
         catch(ExternalException){Message(Look.Tr("클립보드를 읽지 못했어요","Could not read the clipboard"),Look.Tr("다른 앱이 클립보드를 쓰고 있을 수 있어요. 잠시 뒤 다시 눌러 주세요.","Another app may be using the clipboard. Try again in a moment."));return;}
         if(image==null){Message(Look.Tr("붙일 이미지가 없어요","No image to paste"),Look.Tr("복사한 이미지를 읽지 못했어요.","Could not read the copied image."));return;}
-        AddSticker(image,null,Native.ScaleAt(Cursor.Position));
+        Finish();HidePanels();StopZoom();AddSticker(image,null,Native.ScaleAt(Cursor.Position));
+        Pen=true;CapturePen=true;RaiseOverlays();RefreshTools();
     }
     void AddSticker(Image image,Rectangle? at,float scale){
         // The display under the pointer, so pasting works on any monitor.
@@ -341,7 +367,8 @@ internal sealed class Controller:ApplicationContext {
     public void RemoveSticker(StickerForm sticker){if(Stickers.Remove(sticker)){if(sticker.Bar!=null)sticker.Bar.Hide();sticker.Hide();Toolbar.BeginInvoke(new Action(()=>{sticker.Dispose();UpdateExclusions();}));}}
     public void SaveCapture(StickerForm from=null){
         Image image=lastCapture;bool owned=false;
-        if(from!=null||Stickers.Count>0){image=(from??Stickers[Stickers.Count-1]).Composite();owned=true;}
+        if(from!=null){image=from.Composite();owned=true;}
+        else if(image==null&&Stickers.Count>0){image=Stickers[Stickers.Count-1].Composite();owned=true;}
         else if(image==null){try{if(Clipboard.ContainsImage()){image=Clipboard.GetImage();owned=image!=null;}}catch(ExternalException){Message(Look.Tr("클립보드를 읽지 못했어요","Could not read the clipboard"),Look.Tr("다른 앱이 클립보드를 쓰고 있을 수 있어요. 잠시 뒤 다시 눌러 주세요.","Another app may be using the clipboard. Try again in a moment."));return;}}
         if(image==null){Message(Look.Tr("저장할 캡처가 없어요","No capture to save"),Look.Tr("먼저 영역을 캡처해 주세요.","Capture an area first."));return;}
         try{Directory.CreateDirectory(storage.CapturesPath);image.Save(Path.Combine(storage.CapturesPath,Look.MediaName("png",DateTime.Now)),ImageFormat.Png);Toast(Look.Tr("저장했어요 · data\\captures","Saved · data\\captures"));}
@@ -351,22 +378,23 @@ internal sealed class Controller:ApplicationContext {
         finally{if(owned)image.Dispose();}
     }
     void StopZoom(){Zoom=false;if(lens!=null){lens.Hide();lens.Dispose();lens=null;}}
-    public void Finish(){foreach(var view in Ink)view.Finish();}
+    public void Finish(){foreach(var view in Ink)view.Finish();foreach(var sticker in Stickers.ToArray())if(!sticker.IsDisposed)sticker.FinishStroke();}
     public void RefreshTools(){
         if(Exiting||modal)return;
-        if(Pen&&!Preferences.ToolbarHidden)Present(Penbar);else{Penbar.Hide();ColorBar.Hide();}
+        if(PenOptionsOpen&&!Preferences.ToolbarHidden)Present(Penbar);else{Penbar.Hide();ColorBar.Hide();}
         if(Zoom&&!Preferences.ToolbarHidden){ZoomBar.Sync();Present(ZoomBar);}else ZoomBar.Hide();
         // Only while a mode holds the mouse or the QR card is up; an open panel must not take Esc from slideshows or videos.
-        bool active=Pen||Zoom||Selecting||SpotEditing||QrShowing;
+        bool active=(Pen&&!CapturePen)||Zoom||Selecting||SpotEditing||QrShowing;
         if(active&&!escapeRegistered){escapeRegistered=Native.RegisterHotKey(Toolbar.Handle,99,0x4000,0x1B);if(!escapeRegistered)Settings.Hint.Text=Look.Tr("Esc 키가 다른 앱과 겹쳐요.\n펜·돋보기 버튼을 다시 누르면 돌아와요.","Esc clashes with another app.\nPress the Pen or Zoom button again to go back.");}
         if(!active&&escapeRegistered){Native.UnregisterHotKey(Toolbar.Handle,99);escapeRegistered=false;}
         Passthrough=Native.Held(0x12);
-        foreach(var view in Ink){view.SetInput((Pen&&!Passthrough)||Selecting||SpotEditing);view.Render(Cursor.Position);}
+        foreach(var view in Ink){view.SetInput((Pen&&!CapturePen&&!Passthrough)||Selecting||SpotEditing);view.Render(Cursor.Position);}
+        foreach(var sticker in Stickers)sticker.RefreshPenCursor();
         SpotBar.Sync();CaptureBar.Sync();PhoneBar.Sync();Phone.Watch(PhoneBar.Visible||Preferences.PhoneAuto==true);Toolbar.RefreshButtons();
     }
     void Tick(){
         double now=Now;if(now-lastTick>1)hookDue=true;lastTick=now;
-        if(Exiting||modal)return;Native.POINT native;if(!Native.GetCursorPos(out native))return;var p=new Point(native.X,native.Y);
+        if(Exiting||modal)return;if(pendingPanelDismiss){pendingPanelDismiss=false;CloseToolPanels();}Native.POINT native;if(!Native.GetCursorPos(out native))return;var p=new Point(native.X,native.Y);
         // Windows quietly removes a low-level hook that once answered too slowly, and click marks and
         // Ctrl+wheel stop with no error. After a stall, or when the pointer moves with no hook call,
         // hook in again; it costs nothing when the old hook still works.
@@ -375,7 +403,7 @@ internal sealed class Controller:ApplicationContext {
         Passthrough=Native.Held(0x12);
         // Application.Run shows MainForm even if it starts hidden.
         if(Preferences.ToolbarHidden&&Toolbar.Visible)Toolbar.Hide();
-        foreach(var view in Ink){view.SetInput((Pen&&!Passthrough)||Selecting||SpotEditing);view.Render(p);}
+        foreach(var view in Ink){view.SetInput((Pen&&!CapturePen&&!Passthrough)||Selecting||SpotEditing);view.Render(p);}
         if(pendingPointerSteps!=0){ResizeFocus(pendingPointerSteps);pendingPointerSteps=0;}
         bool wasActive=Countdown.Active,wasLocked=Countdown.Locked;if(Countdown.Update(Now)){if(pop!=null)pop.Play();else System.Media.SystemSounds.Exclamation.Play();}
         if(wasActive!=Countdown.Active||wasLocked!=Countdown.Locked)TimerChanged();
@@ -398,6 +426,14 @@ internal sealed class Controller:ApplicationContext {
             var wheel=(Native.MOUSE)Marshal.PtrToStructure(data,typeof(Native.MOUSE));var at=new Point(wheel.Point.X,wheel.Point.Y);
             bool sizing=SpotArea.HasValue||SpotEditing||Preferences.Spotlight||Preferences.Highlight;
             if((sizing&&Native.Held(0x11))||(Toolbar.Visible&&Toolbar.Highlight.RectangleToScreen(Toolbar.Highlight.ClientRectangle).Contains(at))){pendingPointerSteps+=(short)(wheel.Data>>16)>0?1:-1;return new IntPtr(1);}
+        }
+        // Dismiss small panels after an outside click without consuming the click or turning off the tool.
+        if(code>=0&&!Exiting&&!modal&&!Selecting&&!SpotEditing&&(message.ToInt32()==0x201||message.ToInt32()==0x204)){
+            bool open=PenOptionsOpen||Settings.Visible||TimerPanel.Visible||CaptureBar.Visible||SpotBar.Visible||PhoneBar.Visible||QrBar.Visible;
+            if(open){var info=(Native.MOUSE)Marshal.PtrToStructure(data,typeof(Native.MOUSE));var at=new Point(info.Point.X,info.Point.Y);
+                bool own=new Form[]{Toolbar,Penbar,Settings,TimerPanel,CaptureBar,ColorBar,SpotBar,ZoomBar,mini,PhoneBar,QrBar}.Any(f=>f.Visible&&f.Bounds.Contains(at));
+                if(!own)pendingPanelDismiss=true;
+            }
         }
         // Native hooks must return promptly. Only copy event data here; create
         // windows and paint on the next UI timer tick.
@@ -460,17 +496,17 @@ internal sealed class Controller:ApplicationContext {
     public void Clear(){
         Finish();var saved=new ClearedInk{History=new List<object>(UndoHistory)};
         foreach(var view in Ink){if(view.Strokes.Count>0)saved.Views.Add(new KeyValuePair<InkWindow,List<Stroke>>(view,new List<Stroke>(view.Strokes)));view.Strokes.Clear();view.Active=null;view.Dirty=true;}
-        foreach(var sticker in Stickers){if(sticker.HasInk)saved.Stickers.Add(new KeyValuePair<StickerForm,object>(sticker,sticker.SaveInk()));sticker.ClearInk();}
+        foreach(var sticker in Stickers){if(sticker.HasInk)saved.Stickers.Add(new KeyValuePair<StickerForm,object>(sticker,sticker.SaveInk()));sticker.ClearInk();Clip(sticker);}
         UndoHistory.Clear();
         if(saved.Views.Count>0||saved.Stickers.Count>0){UndoHistory.Add(saved);Toast(Look.Tr("모두 지웠어요 · 되돌리기로 되살릴 수 있어요","Cleared · Undo brings it back"));}
     }
     public void Save(){try{Preferences.Validate();storage.Save(Preferences);}catch(Exception e){Message(Look.Tr("설정 저장 실패","Could not save settings"),Look.Tr("드라이브 연결과 저장 공간을 확인해 주세요.\n","Check the drive connection and free space.\n")+e.Message);}}
     public void Message(string title,string text){Ask(title,text,false);}
-    // With ask, the box shows Yes/No and returns whether Yes was chosen.
-    public bool Ask(string title,string text,bool ask=true){
+    // Existing questions use Yes/No. Recording consent uses OK/Cancel with Cancel as the default.
+    public bool Ask(string title,string text,bool ask=true,bool cancelByDefault=false){
         if(Exiting||modal)return false;SetModal(true);bool yes=false;Finish();pendingClicks.Clear();pendingKey=null;
         var windows=Ink.Cast<Form>().Concat(new Form[]{Toolbar,Penbar,Settings,TimerPanel,CaptureBar,ColorBar,SpotBar,ZoomBar,mini,halo,keyboard,badge}).Concat(pulses).Concat(Stickers).Concat(StickerBars).ToArray();var visible=windows.Where(f=>!f.IsDisposed&&f.Visible).ToArray();foreach(var f in visible)f.Hide();if(lens!=null)lens.Hide();
-        try{yes=Native.Box(text,title,ask);}finally{if(!Exiting){foreach(var f in visible)if(!f.IsDisposed)f.Show();if(lens!=null&&!lens.IsDisposed)lens.Show();}SetModal(false);}
+        try{yes=Native.Box(text,title,ask,cancelByDefault:cancelByDefault);}finally{if(!Exiting){foreach(var f in visible)if(!f.IsDisposed)f.Show();if(lens!=null&&!lens.IsDisposed)lens.Show();}SetModal(false);}
         return yes;
     }
     // While a box or a file window is open, Esc belongs to it, so the global Esc key lets go.
@@ -526,8 +562,8 @@ internal sealed class Controller:ApplicationContext {
     }
     public void OpenBlog(){try{Process.Start(Look.BlogUrl);}catch(System.ComponentModel.Win32Exception e){Message(Look.Tr("블로그를 열지 못했어요","Could not open the blog"),e.Message);}}
     public void Help(){if(OpenGuide())return;Message(Look.Tr("YelPoint 사용법","How to Use YelPoint"),Look.Tr(
-        "강조: 커서 주변 링과 왼쪽·오른쪽 클릭 표시\n돋보기: 커서 부근을 실시간으로 1.5~5배 확대\n펜: 색 3개와 색상환 · 굵기(1~30) · 되돌리기 · 모두 지우기(되돌리기로 되살릴 수 있어요)\n타이머: 1~60분 카운트다운. 분을 직접 넣을 수 있고, 시계는 끌어서 옮기고 모서리를 끌어 크기를 바꿔요\n캡처: 영역을 캡처하면 그 자리에 붙어서 바로 필기할 수 있어요. 붙이기 · 저장 · 화면 녹화 · 내 영상(보기 · 자막 넣기)\n스팟: 사각·원·타원으로 보여 줄 곳을 빨간 선으로 표시. 선을 끌어 크기 조절, 바깥 클릭으로 완료\n폰: USB로 꽂은 안드로이드 폰·태블릿 화면이나 카메라(실물화상기)를 띄워요. 처음이면 폰 패널의 ?를 눌러 주세요\nQR: 주소를 넣으면 화면 가운데에 큰 QR 코드를 보여 줘요\n칠판: 분필로 쓰고 지우는 큰 칠판. 글씨 넣기와 PNG 저장도 돼요\n\nCtrl+Alt+1 강조 · 2 돋보기 · 3 펜 · 4 타이머 · 5 캡처 · 6 스팟 · 0 도구막대 숨기기\nEsc: 펜·돋보기·캡처·스팟·QR을 끄고 평소 마우스로 (필기는 남아요)\nAlt를 누르는 동안: 필기 중 클릭·스크롤 통과\nCtrl+휠: 위로 크게, 아래로 작게 (스팟 → 주변 어둡게 원 → 강조 링 순서)\n도구막대는 끌어서 옮길 수 있어요. 왼쪽·오른쪽 끝에 닿으면 세로로 서요.\n\n작업표시줄 아이콘 우클릭 → 작업 표시줄에 고정\n설정과 저장한 캡처·녹화는 설치 폴더의 data에 있어요.",
-        "Highlight: a ring around the pointer and left/right click marks\nZoom: live magnifier near the pointer, 1.5× to 5×\nPen: 3 colors and a color wheel, width (1 to 30), undo, clear all (Undo brings it back)\nTimer: 1 to 60 minute countdown. Type minutes; drag the clock to move it, drag its corner to resize\nCapture: grab an area and it stays pinned so you can write on it. Paste, save, record the screen, My Videos (watch, add subtitles)\nSpot: mark a rectangle, circle or ellipse with a red line. Drag the line to resize, click outside when done\nPhone: show an Android phone or tablet plugged in over USB, or its camera as a document camera. First time? Press ? on the phone panel\nQR: type an address to show a big QR code in the middle of the screen\nBoard: a big chalkboard to draw, write and erase on. Save it as PNG\n\nCtrl+Alt+1 Highlight · 2 Zoom · 3 Pen · 4 Timer · 5 Capture · 6 Spot · 0 Hide bar\nEsc: turn off Pen, Zoom, Capture, Spot or QR and get the mouse back (ink stays)\nHold Alt: clicks pass through while drawing\nCtrl+wheel: up larger, down smaller (spot, then dim circle, then pointer ring)\nDrag the toolbar to move it. At a side edge it stands up.\n\nRight-click the taskbar icon → Pin to taskbar\nSettings, saved captures and recordings are in the data folder."));}
+        "강조: 커서 주변 링과 왼쪽·오른쪽 클릭 표시\n돋보기: 커서 부근을 실시간으로 1.5~5배 확대\n펜: 누르면 바로 필기. 옆 ▾를 눌렀을 때만 색·굵기·되돌리기·모두 지우기 창이 열려요\n타이머: 1~60분 카운트다운. 분을 직접 넣을 수 있고, 시계는 끌어서 옮기고 모서리를 끌어 크기를 바꿔요\n캡처: 누르고 영역을 고르면 미리보기 없이 바로 클립보드에 복사해요. Ctrl+V로 붙여넣으세요. 옆 ▾에서 동영상 녹화·저장·내 영상을 열어요. 그림 위에 필기가 필요할 때만 띄우기를 누르세요\n스팟: 사각·원·타원으로 보여 줄 곳을 빨간 선으로 표시. 선을 끌어 크기 조절, 바깥 클릭으로 완료\n폰: USB로 꽂은 안드로이드 폰·태블릿 화면이나 카메라(실물화상기)를 띄워요. 처음이면 폰 패널의 ?를 눌러 주세요\nQR: 주소를 넣으면 화면 가운데에 큰 QR 코드를 보여 줘요\n칠판: 분필로 쓰고 지우는 큰 칠판. 글씨 넣기와 PNG 저장도 돼요\n\nCtrl+Alt+1 강조 · 2 돋보기 · 3 펜 · 4 타이머 · 5 캡처 · 6 스팟 · 0 도구막대 숨기기\nEsc: 펜·돋보기·캡처·스팟·QR을 끄고 평소 마우스로 (필기는 남아요)\nAlt를 누르는 동안: 필기 중 클릭·스크롤 통과\nCtrl+휠: 위로 크게, 아래로 작게 (스팟 → 주변 어둡게 원 → 강조 링 순서)\n도구막대는 끌어서 옮길 수 있어요. 왼쪽·오른쪽 끝에 닿으면 세로로 서요.\n\n작업표시줄 아이콘 우클릭 → 작업 표시줄에 고정\n설정과 저장한 캡처·녹화는 설치 폴더의 data에 있어요.",
+        "Highlight: a ring around the pointer and left/right click marks\nZoom: live magnifier near the pointer, 1.5× to 5×\nPen: 3 colors and a color wheel, width (1 to 30), undo, clear all (Undo brings it back)\nTimer: 1 to 60 minute countdown. Type minutes; drag the clock to move it, drag its corner to resize\nCapture: one click to select an area and copy it, without opening a preview. Use the arrow for recording or to pin an image. Paste, save, record the screen, My Videos (watch, add subtitles)\nSpot: mark a rectangle, circle or ellipse with a red line. Drag the line to resize, click outside when done\nPhone: show an Android phone or tablet plugged in over USB, or its camera as a document camera. First time? Press ? on the phone panel\nQR: type an address to show a big QR code in the middle of the screen\nBoard: a big chalkboard to draw, write and erase on. Save it as PNG\n\nCtrl+Alt+1 Highlight · 2 Zoom · 3 Pen · 4 Timer · 5 Capture · 6 Spot · 0 Hide bar\nEsc: turn off Pen, Zoom, Capture, Spot or QR and get the mouse back (ink stays)\nHold Alt: clicks pass through while drawing\nCtrl+wheel: up larger, down smaller (spot, then dim circle, then pointer ring)\nDrag the toolbar to move it. At a side edge it stands up.\n\nRight-click the taskbar icon → Pin to taskbar\nSettings, saved captures and recordings are in the data folder."));}
 
     // ---- Subtitles (see Subtitles.cs) ----
     SubtitleForm subtitles;
@@ -550,11 +586,6 @@ internal sealed class Controller:ApplicationContext {
         if(Exiting||modal||Recording)return;
         if(myVideos==null||myVideos.IsDisposed)myVideos=new MyVideosForm(this,Native.ScaleAt(Cursor.Position));
         myVideos.Open();
-    }
-    void OfferSubtitles(string path){
-        if(Exiting||modal)return;SetModal(true);bool yes;
-        try{yes=Native.Box(Look.Tr("저장 위치: ","Saved in: ")+Path.GetDirectoryName(path)+Look.Tr("\n파일 이름: ","\nFile: ")+Path.GetFileName(path)+Look.Tr("\n\n자막을 넣을까요? 영상을 보면서 자막을 넣고 SRT 파일로 저장할 수 있어요.","\n\nAdd subtitles? Watch the video, add lines, and save an SRT file."),Look.Tr("녹화를 저장했어요","Recording saved"),true,true);}finally{SetModal(false);}
-        if(yes)OpenSubtitles(path);
     }
     // ---- Chalkboard (see Board.cs) ----
     void OpenBoard(){
@@ -607,7 +638,7 @@ internal sealed class Controller:ApplicationContext {
     void PhoneRecorded(string path){
         long size=0;try{if(File.Exists(path))size=new FileInfo(path).Length;}catch(Exception){}
         if(size==0){try{File.Delete(path);}catch(Exception){}Message(Look.Tr("폰 녹화를 저장하지 못했어요","Could not save the phone recording"),Look.Tr("폰 화면이 너무 짧게 열렸거나 연결이 끊겼어요. 다시 녹화해 주세요.","The phone was open too briefly or got unplugged. Please record again."));return;}
-        Toast(Look.Tr("폰 녹화를 저장했어요 · data\\captures","Phone recording saved · data\\captures"));OfferSubtitles(path);
+        Toast(Look.Tr("폰 녹화를 저장했어요 · data\\captures","Phone recording saved · data\\captures"));
     }
     public void ClosePhone(){phoneDismissed=true;Phone.Stop();}
     // ---- 영상 가져오기: a gallery video copied from the phone, then subtitles ----
@@ -631,7 +662,7 @@ internal sealed class Controller:ApplicationContext {
         var area=Phone.WindowArea();if(area==null)return;
         var center=new Point(area.Value.X+area.Value.Width/2,area.Value.Y+area.Value.Height/2);
         var view=Ink.FirstOrDefault(v=>v.Bounds.Contains(center));if(view==null)return;
-        FinishSelection(view,new Rectangle(area.Value.X-view.Left,area.Value.Y-view.Top,area.Value.Width,area.Value.Height));
+        FinishSelection(view,new Rectangle(area.Value.X-view.Left,area.Value.Y-view.Top,area.Value.Width,area.Value.Height),pinForAnnotation:true);
     }
     public void PhoneHelp(){
         if(Ask(Look.Tr("안드로이드 폰·태블릿 처음 연결하기","Connecting an Android phone or tablet"),Look.Tr(

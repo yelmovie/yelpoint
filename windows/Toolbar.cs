@@ -8,13 +8,14 @@ namespace YelPoint {
 internal sealed class ToolButton:Control {
     public bool Selected;
     public string Symbol;
+    public float LabelSize=13f;
     public ToolButton(string label,string symbol){Text=label;Symbol=symbol;TabStop=true;AccessibleName=label.Length==0?symbol:label;AccessibleRole=AccessibleRole.PushButton;SetStyle(ControlStyles.UserPaint|ControlStyles.AllPaintingInWmPaint|ControlStyles.OptimizedDoubleBuffer|ControlStyles.Selectable,true);}
     protected override void OnKeyDown(KeyEventArgs e){if(e.KeyCode==Keys.Space||e.KeyCode==Keys.Enter){OnClick(EventArgs.Empty);e.Handled=true;}base.OnKeyDown(e);}
     protected override void OnPaint(PaintEventArgs e){
         var g=e.Graphics;g.SmoothingMode=SmoothingMode.AntiAlias;g.Clear(Parent.BackColor);
         if(Selected)Look.FillRound(g,Look.Lime,new RectangleF(1,1,Width-2,Height-2),11*Height/44f);
         Color c=Selected?Look.Dock:Look.Paper;if(!Enabled)c=Color.FromArgb(90,c);float scale=Height/44f;
-        using(var font=Look.Pixels(13f*scale)){
+        using(var font=Look.Pixels(LabelSize*scale)){
             var text=g.MeasureString(Text,font);float iw=17*scale,total=iw+(Text.Length==0?0:text.Width+6*scale),x=(Width-total)/2;
             DrawSymbol(g,Symbol,c,new RectangleF(x,(Height-iw)/2,iw,iw));
             if(Text.Length>0)using(var b=new SolidBrush(c))g.DrawString(Text,font,b,x+iw+6*scale,(Height-text.Height)/2);
@@ -27,6 +28,7 @@ internal sealed class ToolButton:Control {
             if(name=="highlight"){var points=new[]{new PointF(3,2),new PointF(5,16),new PointF(8,11),new PointF(14,11)};g.DrawPolygon(pen,points);}
             else if(name=="zoom"){g.DrawEllipse(pen,2,2,10,10);g.DrawLine(pen,11,11,16,16);}
             else if(name=="pen"){g.DrawPolygon(pen,new[]{new PointF(3,12),new PointF(12,3),new PointF(15,6),new PointF(6,15),new PointF(2,16)});g.DrawLine(pen,10,5,13,8);}
+            else if(name=="more"){g.DrawLines(pen,new[]{new PointF(5,7),new PointF(9,11),new PointF(13,7)});}
             else if(name=="settings"){for(int i=0;i<3;i++){int y=4+i*5;g.DrawLine(pen,2,y,16,y);using(var b=new SolidBrush(color))g.FillEllipse(b,4+i*3,y-2,4,4);}}
             else if(name=="hide"){g.DrawEllipse(pen,2,5,14,8);g.DrawEllipse(pen,7,7,4,4);g.DrawLine(pen,3,15,15,3);}
             else if(name=="captions"){g.DrawRectangle(pen,1.5f,3,15,11);g.DrawLine(pen,4,7.5f,8,7.5f);g.DrawLine(pen,10,7.5f,14,7.5f);g.DrawLine(pen,4,10.5f,11,10.5f);}
@@ -130,11 +132,14 @@ internal class FloatingForm:Form {
 
 internal sealed class ToolbarForm:FloatingForm {
     readonly Controller app;
-    public readonly ToolButton Highlight,Zoom,Pen,Clock,Grab,SpotButton,PhoneButton,QrButton,BoardButton,Settings,HideButton,QuitButton;
+    public readonly ToolButton Highlight,Zoom,Pen,PenOptions,Clock,Grab,CaptureOptions,SpotButton,PhoneButton,QrButton,BoardButton,Settings,HideButton,QuitButton;
     public bool Vertical{get;private set;}
     public ToolbarForm(Controller app){
         this.app=app;Text="YelPoint";Icon=Look.Icon();ShowInTaskbar=true;Size=new Size(S(866),S(56));
-        Highlight=Add(Look.Tr("강조","Highlight"),"highlight",20,84,()=>app.Toggle("highlight"));Zoom=Add(Look.Tr("돋보기","Zoom"),"zoom",106,86,()=>app.Toggle("zoom"));Pen=Add(Look.Tr("펜","Pen"),"pen",194,64,()=>app.Toggle("pen"));Clock=Add(Look.Tr("타이머","Timer"),"timer",260,86,()=>app.Toggle("timer"));Grab=Add(Look.Tr("캡처","Capture"),"capture",348,88,()=>app.Toggle("capture"));SpotButton=Add(Look.Tr("스팟","Spot"),"spot",438,76,()=>app.Toggle("spot"));PhoneButton=Add(Look.Tr("폰","Phone"),"phone",516,70,()=>app.Toggle("phone"));PhoneButton.AccessibleName=Look.Tr("안드로이드 폰·태블릿 화면과 실물화상기","Android phone or tablet screen and document camera");QrButton=Add("QR","qr",588,60,()=>app.Toggle("qr"));QrButton.AccessibleName=Look.Tr("주소를 QR 코드로 크게 보여 주기","Show an address as a big QR code");BoardButton=Add(Look.Tr("칠판","Board"),"board",650,70,()=>app.Toggle("board"));BoardButton.AccessibleName=Look.Tr("분필로 쓰는 큰 칠판","A big chalkboard to draw and write on");Settings=Add("","settings",732,38,()=>app.Toggle("settings"));HideButton=Add("","hide",772,38,()=>app.Toggle("hide"));HideButton.AccessibleName=Look.Tr("도구막대 숨기기","Hide toolbar");QuitButton=Add("","power",812,38,()=>app.Quit());QuitButton.AccessibleName=Look.Tr("YelPoint 종료","Quit YelPoint");
+        Highlight=Add(Look.Tr("강조","Highlight"),"highlight",20,84,()=>app.Toggle("highlight"));Zoom=Add(Look.Tr("돋보기","Zoom"),"zoom",106,86,()=>app.Toggle("zoom"));Pen=Add(Look.Tr("펜","Pen"),"pen",194,42,()=>app.Toggle("pen"));PenOptions=Add("","more",236,22,()=>app.TogglePenOptions());Clock=Add(Look.Tr("타이머","Timer"),"timer",260,86,()=>app.Toggle("timer"));Grab=Add(Look.Tr("캡처","Capture"),"capture",348,66,()=>app.QuickCapture());CaptureOptions=Add("","more",414,22,()=>app.Toggle("capture"));SpotButton=Add(Look.Tr("스팟","Spot"),"spot",438,76,()=>app.Toggle("spot"));PhoneButton=Add(Look.Tr("폰","Phone"),"phone",516,70,()=>app.Toggle("phone"));PhoneButton.AccessibleName=Look.Tr("안드로이드 폰·태블릿 화면과 실물화상기","Android phone or tablet screen and document camera");QrButton=Add("QR","qr",588,60,()=>app.Toggle("qr"));QrButton.AccessibleName=Look.Tr("주소를 QR 코드로 크게 보여 주기","Show an address as a big QR code");BoardButton=Add(Look.Tr("칠판","Board"),"board",650,70,()=>app.Toggle("board"));BoardButton.AccessibleName=Look.Tr("분필로 쓰는 큰 칠판","A big chalkboard to draw and write on");Settings=Add("","settings",732,38,()=>app.Toggle("settings"));HideButton=Add("","hide",772,38,()=>app.Toggle("hide"));HideButton.AccessibleName=Look.Tr("도구막대 숨기기","Hide toolbar");QuitButton=Add("","power",812,38,()=>app.Quit());QuitButton.AccessibleName=Look.Tr("YelPoint 종료","Quit YelPoint");
+        Pen.LabelSize=10f;Grab.LabelSize=11f;Grab.AccessibleName=Look.Tr("영역 캡처 · 미리보기 없이 클립보드에 복사","Capture an area straight to the clipboard");
+        PenOptions.AccessibleName=Look.Tr("펜 색과 굵기 열기·닫기","Show or hide pen color and width");CaptureOptions.AccessibleName=Look.Tr("캡처 옵션 · 동영상 녹화·저장","Capture options · video recording and save");
+        var tips=new ToolTip{ShowAlways=true};tips.SetToolTip(PenOptions,PenOptions.AccessibleName);tips.SetToolTip(CaptureOptions,CaptureOptions.AccessibleName);Disposed+=(s,e)=>tips.Dispose();
         Settings.AccessibleName=Look.Tr("간단 설정","Settings");
         var menu=new ContextMenuStrip();menu.Items.Add(Look.Tr("사용법","How to Use"),null,(s,e)=>app.Help());menu.Items.Add(Look.Tr("YelPoint 종료","Quit YelPoint"),null,(s,e)=>app.Quit());ContextMenuStrip=menu;
         Move+=(s,e)=>app.PositionChildren();
@@ -144,6 +149,8 @@ internal sealed class ToolbarForm:FloatingForm {
         Vertical=vertical;Size=vertical?new Size(S(92),S(536)):new Size(S(866),S(56));
         var tools=new[]{Highlight,Zoom,Pen,Clock,Grab,SpotButton,PhoneButton,QrButton,BoardButton};int[] left={20,106,194,260,348,438,516,588,650},width={84,86,64,86,88,76,70,60,70};
         for(int i=0;i<tools.Length;i++)tools[i].Bounds=vertical?new Rectangle(S(6),S(16+i*45),S(80),S(43)):new Rectangle(S(left[i]),S(6),S(width[i]),S(44));
+        var penBounds=Pen.Bounds;Pen.Width-=S(22);PenOptions.Bounds=new Rectangle(Pen.Right,penBounds.Top,S(22),penBounds.Height);
+        var captureBounds=Grab.Bounds;Grab.Width-=S(22);CaptureOptions.Bounds=new Rectangle(Grab.Right,captureBounds.Top,S(22),captureBounds.Height);
         Settings.Bounds=vertical?new Rectangle(S(6),S(430),S(38),S(40)):new Rectangle(S(732),S(4),S(38),S(34));
         HideButton.Bounds=vertical?new Rectangle(S(48),S(430),S(38),S(40)):new Rectangle(S(772),S(4),S(38),S(34));
         QuitButton.Bounds=vertical?new Rectangle(S(27),S(476),S(38),S(38)):new Rectangle(S(812),S(4),S(38),S(34));
@@ -164,7 +171,7 @@ internal sealed class ToolbarForm:FloatingForm {
         b.MouseUp+=(s,e)=>{if(e.Button==MouseButtons.Left)Release();};
         Controls.Add(b);return b;
     }
-    public void RefreshButtons(){Highlight.Selected=app.Preferences.Highlight;Zoom.Selected=app.Zoom;Pen.Selected=app.Pen;Clock.Selected=app.TimerPanel.Visible||app.Countdown.Active;Grab.Selected=app.CaptureBar.Visible||app.Selecting||app.Recording;Grab.Text=app.Recording?Look.Tr("녹화중","Recording"):Look.Tr("캡처","Capture");SpotButton.Selected=app.SpotBar.Visible||app.SpotArea.HasValue;PhoneButton.Selected=app.PhoneBar.Visible||app.Phone.Running;QrButton.Selected=app.QrBar.Visible||app.QrShowing;BoardButton.Selected=app.BoardOpen;Settings.Selected=app.Settings.Visible;foreach(Control c in Controls)c.Invalidate();}
+    public void RefreshButtons(){Highlight.Selected=app.Preferences.Highlight;Zoom.Selected=app.Zoom;Pen.Selected=app.Pen;PenOptions.Selected=app.PenOptionsOpen;CaptureOptions.Selected=app.CaptureBar.Visible;Clock.Selected=app.TimerPanel.Visible||app.Countdown.Active;Grab.Selected=app.CaptureBar.Visible||app.Selecting||app.Recording;Grab.Text=app.Recording?Look.Tr("정지","Stop"):Look.Tr("캡처","Capture");Grab.Symbol=app.Recording?"stop":"capture";SpotButton.Selected=app.SpotBar.Visible||app.SpotArea.HasValue;PhoneButton.Selected=app.PhoneBar.Visible||app.Phone.Running;QrButton.Selected=app.QrBar.Visible||app.QrShowing;BoardButton.Selected=app.BoardOpen;Settings.Selected=app.Settings.Visible;foreach(Control c in Controls)c.Invalidate();}
     protected override void OnPaint(PaintEventArgs e){base.OnPaint(e);e.Graphics.SmoothingMode=SmoothingMode.AntiAlias;using(var b=new SolidBrush(Color.FromArgb(100,Look.Paper))){if(Vertical){for(int x=39;x<=51;x+=6)for(int y=3;y<=8;y+=5)e.Graphics.FillEllipse(b,S(x),S(y),S(2),S(2));}else{for(int x=8;x<=13;x+=5)for(int y=21;y<=33;y+=6)e.Graphics.FillEllipse(b,S(x),S(y),S(2),S(2));}}using(var p=new Pen(Color.FromArgb(50,Look.Paper))){if(Vertical)e.Graphics.DrawLine(p,S(12),S(424),S(80),S(424));else e.Graphics.DrawLine(p,S(726),S(17),S(726),S(39));}using(var font=CreditFont())using(var b=new SolidBrush(Color.FromArgb(184,Look.Paper)))e.Graphics.DrawString(Credit,font,b,CreditRect(e.Graphics).Location);}
     // © mark centered under the power button; a click opens the blog and suggestion popup.
     const string Credit="© yelsam.lab";
@@ -328,11 +335,11 @@ internal sealed class CaptureForm:FloatingForm {
     readonly ToolButton record,videos;
     public CaptureForm(Controller app){
         this.app=app;Size=new Size(S(446),S(48));
-        Add(Look.Tr("영역","Area"),"area",8,Look.Tr("드래그해서 영역 캡처","Drag to capture an area"),()=>app.BeginSelection());Add(Look.Tr("붙이기","Paste"),"paste",94,Look.Tr("복사한 이미지를 화면에 붙이기","Paste the copied image on screen"),()=>app.PasteSticker());Add(Look.Tr("저장","Save"),"save",180,Look.Tr("마지막 캡처를 data\\captures에 저장","Save the last capture"),()=>app.SaveCapture());record=Add(Look.Tr("녹화","Record"),"record",266,Look.Tr("화면 녹화 시작·정지","Start or stop recording"),()=>app.ToggleRecording());videos=Add(Look.Tr("내 영상","My Videos"),"play",352,Look.Tr("녹화한 영상 보기 · 자막 넣기","Watch your recordings and add subtitles"),()=>app.ShowMyVideos());
+        Add(Look.Tr("사진","Photo"),"area",8,Look.Tr("사진 캡처 · Ctrl+Alt+5 · 드래그해서 영역 선택","Photo capture · Ctrl+Alt+5 · drag to select an area"),()=>app.BeginSelection());Add(Look.Tr("띄우기","Pin"),"paste",94,Look.Tr("필요할 때만 복사한 이미지를 화면에 띄우고 필기","Only when needed: pin the copied image and draw on it"),()=>app.PasteSticker());Add(Look.Tr("저장","Save"),"save",180,Look.Tr("마지막 캡처를 data\\captures에 저장","Save the last capture"),()=>app.SaveCapture());record=Add(Look.Tr("동영상","Video"),"record",266,Look.Tr("화면 녹화 시작·정지","Start or stop recording"),()=>app.ToggleRecording());videos=Add(Look.Tr("내 영상","My Videos"),"play",352,Look.Tr("녹화한 영상 보기 · 자막 넣기","Watch your recordings and add subtitles"),()=>app.ShowMyVideos());
     }
     ToolButton Add(string title,string symbol,int x,string name,Action action){var b=new ToolButton(title,symbol){Bounds=new Rectangle(S(x),S(4),S(86),S(40)),AccessibleName=name};b.Click+=(s,e)=>action();Controls.Add(b);return b;}
     // Locked while recording, so a stray click next to Stop cannot open another window.
-    public void Sync(){videos.Enabled=!app.Recording;record.Selected=app.Recording;record.Text=app.Recording?Look.Tr("정지","Stop"):Look.Tr("녹화","Record");record.Symbol=app.Recording?"stop":"record";record.Invalidate();}
+    public void Sync(){videos.Enabled=!app.Recording;record.Selected=app.Recording;record.Text=app.Recording?Look.Tr("정지","Stop"):Look.Tr("동영상","Video");record.Symbol=app.Recording?"stop":"record";record.Invalidate();}
 }
 
 internal sealed class SpotForm:FloatingForm {
@@ -357,6 +364,7 @@ internal sealed class StickerForm:FloatingForm {
     readonly List<bool> order=new List<bool>();
     Point menuPoint;
     TextBox editor;
+    Stroke activeStroke;
     readonly QuietButton close;
     public void AddStroke(Stroke stroke){Strokes.Add(stroke);order.Add(false);Invalidate();}
     public bool UndoLast(){if(order.Count==0)return false;bool note=order[order.Count-1];order.RemoveAt(order.Count-1);if(note)notes.RemoveAt(notes.Count-1);else Strokes.RemoveAt(Strokes.Count-1);Invalidate();return true;}
@@ -379,12 +387,13 @@ internal sealed class StickerForm:FloatingForm {
         editor.KeyDown+=(s,e)=>{if(e.KeyCode==Keys.Enter){CommitNote();e.SuppressKeyPress=true;RestoreForeground();}};editor.Leave+=(s,e)=>CommitNote();
         Controls.Add(editor);editor.BringToFront();RememberForeground();Activate();editor.Focus();
     }
+    public void FinishNote(){CommitNote();}
     void CommitNote(){
         if(editor==null)return;var box=editor;editor=null;string text=box.Text.Trim();
         if(text.Length>0){notes.Add(new Note{Text=text,At=box.Location,Color=box.ForeColor,Size=box.Font.Size});order.Add(true);app.NoteAdded(this);}
         Controls.Remove(box);box.Dispose();Invalidate();
     }
-    void DrawInk(Graphics g){foreach(var stroke in Strokes)stroke.Draw(g,0);foreach(var note in notes)using(var font=Look.Pixels(note.Size,FontStyle.Bold))using(var brush=new SolidBrush(note.Color))g.DrawString(note.Text,font,brush,note.At);}
+    void DrawInk(Graphics g){foreach(var stroke in Strokes)stroke.Draw(g,0);if(activeStroke!=null)activeStroke.Draw(g,0);foreach(var note in notes)using(var font=Look.Pixels(note.Size,FontStyle.Bold))using(var brush=new SolidBrush(note.Color))g.DrawString(note.Text,font,brush,note.At);}
     // scale is the DPI factor of the display it is pinned on, for the frame, ✕ and grip only.
     public StickerForm(Controller app,Image image,Size size,float scale){
         KeepPixels=true;ScaleFactor=scale;
@@ -413,7 +422,27 @@ internal sealed class StickerForm:FloatingForm {
         using(var g=Graphics.FromImage(b)){g.InterpolationMode=InterpolationMode.NearestNeighbor;g.PixelOffsetMode=PixelOffsetMode.Half;g.DrawImage(image,0,0,image.Width,image.Height);g.PixelOffsetMode=PixelOffsetMode.Default;g.SmoothingMode=SmoothingMode.AntiAlias;g.ScaleTransform(image.Width/(float)(Width-S(4)),image.Height/(float)(Height-S(4)));g.TranslateTransform(-S(2),-S(2));DrawInk(g);}
         return b;
     }
-    protected override void OnMouseDown(MouseEventArgs e){if(e.Button==MouseButtons.Left){Native.ReleaseCapture();Native.SendMessage(Handle,0xA1,new IntPtr(2),IntPtr.Zero);}base.OnMouseDown(e);}
+    bool DrawingOnCapture{get{return app.Pen&&app.CapturePen&&!app.Passthrough&&!app.Selecting&&!app.SpotEditing;}}
+    public void RefreshPenCursor(){Cursor=DrawingOnCapture?Cursors.Cross:Cursors.Default;}
+    public void FinishStroke(){
+        if(activeStroke==null)return;var stroke=activeStroke;activeStroke=null;Capture=false;
+        AddStroke(stroke);app.UndoHistory.Add(this);app.Clip(this);
+    }
+    protected override void OnMouseDown(MouseEventArgs e){
+        base.OnMouseDown(e);if(e.Button!=MouseButtons.Left)return;
+        if(DrawingOnCapture&&!GripArea.Contains(e.Location)){
+            FinishNote();app.ColorBar.Hide();
+            activeStroke=new Stroke{Color=app.InkColor,Width=app.Preferences.PenWidth*ScaleFactor,Created=app.Now,Fades=false};
+            activeStroke.Points.Add(e.Location);Capture=true;Invalidate();return;
+        }
+        Native.ReleaseCapture();Native.SendMessage(Handle,0xA1,new IntPtr(2),IntPtr.Zero);
+    }
+    protected override void OnMouseMove(MouseEventArgs e){
+        base.OnMouseMove(e);if(activeStroke==null)return;var last=activeStroke.Points[activeStroke.Points.Count-1];
+        if(Math.Abs(last.X-e.X)+Math.Abs(last.Y-e.Y)<1)return;activeStroke.Points.Add(e.Location);Invalidate();
+    }
+    protected override void OnMouseUp(MouseEventArgs e){base.OnMouseUp(e);if(e.Button==MouseButtons.Left)FinishStroke();}
+    protected override void OnMouseCaptureChanged(EventArgs e){base.OnMouseCaptureChanged(e);if(!Capture)FinishStroke();}
     protected override void Dispose(bool disposing){if(disposing){image.Dispose();if(Bar!=null)Bar.Dispose();}base.Dispose(disposing);}
 }
 
@@ -423,7 +452,7 @@ internal sealed class StickerBar:FloatingForm {
     readonly StickerForm sticker;
     public StickerBar(Controller app,StickerForm sticker,float scale){
         ScaleFactor=scale;this.sticker=sticker;Size=new Size(S(5*82+8),S(44));AccessibleName=Look.Tr("붙인 이미지 버튼","Pinned image buttons");
-        Add(0,Look.Tr("복사됨","Copied"),"checked",Look.Tr("이미 클립보드에 있어요. 누르면 다시 복사해요.","Already on the clipboard. Click to copy again."),()=>app.CopySticker(sticker)).Selected=true;
+        Add(0,Look.Tr("복사","Copy"),"checked",Look.Tr("펜을 유지한 채 복사 · 다른 앱을 클릭하고 Ctrl+V","Copy and keep drawing · click another app and Ctrl+V"),()=>app.CopySticker(sticker)).Selected=true;
         Add(1,Look.Tr("저장","Save"),"save",Look.Tr("PNG로 저장","Save as PNG"),()=>app.SaveCapture(sticker));
         Add(2,Look.Tr("글자","Text"),"text",Look.Tr("그림 위에 글자 쓰기","Type on the image"),()=>sticker.BeginNoteAtLeft(app.InkColor));
         Add(3,Look.Tr("붙여넣기","Paste"),"paste",Look.Tr("앞에 있는 앱에 바로 붙여넣기","Paste into the app in front"),()=>app.PasteInto(sticker));

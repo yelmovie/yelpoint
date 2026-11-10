@@ -61,6 +61,10 @@ internal static class Native {
     [DllImport("user32.dll",CharSet=CharSet.Unicode,EntryPoint="MessageBoxW")] static extern int MessageBoxW(IntPtr owner,string text,string caption,uint type);
     // Topmost and brought forward, so a box raised while every YelPoint window is hidden
     // cannot open behind the lesson app and leave the app looking frozen. true for Yes.
-    public static bool Box(string text,string caption,bool yesNo,bool question=false){return MessageBoxW(IntPtr.Zero,text,caption,(yesNo?0x4u:0u)|(question?0x20u:0x40u)|0x40000u|0x10000u)==6;}
+    public static bool Box(string text,string caption,bool yesNo,bool question=false,bool cancelByDefault=false){
+        // MB_OKCANCEL | MB_DEFBUTTON2 lets Escape, Close and the default button cancel recording.
+        uint buttons=yesNo?(cancelByDefault?0x101u:0x4u):0u;
+        return MessageBoxW(IntPtr.Zero,text,caption,buttons|(question?0x20u:0x40u)|0x40000u|0x10000u)==(yesNo&&cancelByDefault?1:6);
+    }
 }
 }
