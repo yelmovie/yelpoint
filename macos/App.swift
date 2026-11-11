@@ -72,6 +72,7 @@ final class AppController: NSObject, NSApplicationDelegate {
   var selecting = false, hideHalo = false
   var stickers: [QuietPanel] = []
   var captureGeneration = 0
+  var captureInteractionVersion = 0
   var lastCapture: CGImage?
   var recorder: ScreenRecorder?
   var capture = MagnifierCapture()
@@ -242,6 +243,9 @@ final class AppController: NSObject, NSApplicationDelegate {
     refreshTools()
     if ProcessInfo.processInfo.arguments.contains("--smoke-test") {
       DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { self.quit() }
+    }
+    if ProcessInfo.processInfo.arguments.contains("--capture-self-test") {
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { self.runLiveCaptureTest() }
     }
     if ProcessInfo.processInfo.arguments.contains("--ui-self-test") {
       DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { self.runUISelfTest() }
@@ -462,6 +466,7 @@ final class AppController: NSObject, NSApplicationDelegate {
   }
   func toggle(_ name: String) {
     guard !toolsSuspended else { return }
+    captureInteractionVersion += 1
     switch name {
     case "highlight":
       preferences.highlight.toggle()
@@ -1013,6 +1018,7 @@ final class AppController: NSObject, NSApplicationDelegate {
     }
   }
   func returnToPointer() {
+    captureInteractionVersion += 1
     hideHalo = false
     finishStrokes()
     pen = false
@@ -1048,7 +1054,7 @@ final class AppController: NSObject, NSApplicationDelegate {
     }
     showMessage(
       tr("YelPoint 사용법", "How to Use YelPoint"),
-      tr("강조: 커서 주변 링과 좌우 클릭 표시\nControl+스크롤: 위로 크게, 아래로 작게 (스팟 → 주변 어둡게 원 → 포인터 순서)\n돋보기: 커서 부근 실시간 확대, 1.5~5배 선택\n펜: 색 3개와 색상환 · 굵기 슬라이더(1~30) · 되돌리기 · 지우기\n타이머: 1~60분 카운트다운. 분 직접 입력, 시계는 끌어서 이동하고 모서리로 크기 조절\n캡처: 영역을 고르면 창 없이 바로 복사. 옆 ▾에서 저장·그림 붙이기·화면 녹화\n스팟: 사각·원·타원으로 드래그하면 빨간 선으로 표시. 선을 끌어 크기 조절, 바깥 클릭으로 완료\n\n⌃⌥1 강조 · 2 돋보기 · 3 펜 · 4 타이머 · 5 캡처 · 6 스팟\nEsc: 조작 모드로 돌아오기 (필기는 유지)\nOption을 누르는 동안: 필기 중 클릭·스크롤 통과\n도구막대는 버튼을 잡고 끌어도 어디든 옮겨져요. 왼쪽·오른쪽 끝에 닿으면 바로 세로로 서요. 눈 버튼이나 ⌃⌥0으로 숨길 수 있어요.\n\n저장한 캡처·녹화 위치: ", "Highlight: a ring around the pointer and left/right click marks\nControl+scroll: up larger, down smaller (spot, then dim circle, then pointer)\nZoom: live magnifier, choose 1.5× to 5×\nPen: 3 colors and a color wheel, width slider, undo, clear\nTimer: 1 to 60 minute countdown. Type minutes; drag the clock to move it, drag its corner to resize\nCapture: select an area to copy without a preview. Use ▾ for save, pin, or recording\nSpot: drag a rectangle, circle or ellipse to mark it with a red line\n\n⌃⌥1 Highlight · 2 Zoom · 3 Pen · 4 Timer · 5 Capture · 6 Spot · 0 Hide bar\nEsc: back to normal use\nHold Option: clicks pass through while drawing\nDrag the toolbar to move it. At a side edge it stands up.\n\nSaved captures and recordings: ") + storage.capturesLabel
+      tr("강조: 커서 주변 링과 좌우 클릭 표시\nControl+스크롤: 위로 크게, 아래로 작게 (스팟 → 주변 어둡게 원 → 포인터 순서)\n돋보기: 커서 부근 실시간 확대, 1.5~5배 선택\n펜: 색 3개와 색상환 · 굵기 슬라이더(1~30) · 되돌리기 · 지우기\n타이머: 1~60분 카운트다운. 분 직접 입력, 시계는 끌어서 이동하고 모서리로 크기 조절\n캡처: 영역을 고르면 편집창에서 바로 필기·복사·저장. 옆 ▾에서 저장·그림 붙이기·화면 녹화\n스팟: 사각·원·타원으로 드래그하면 빨간 선으로 표시. 선을 끌어 크기 조절, 바깥 클릭으로 완료\n\n⌃⌥1 강조 · 2 돋보기 · 3 펜 · 4 타이머 · 5 캡처 · 6 스팟\nEsc: 조작 모드로 돌아오기 (필기는 유지)\nOption을 누르는 동안: 필기 중 클릭·스크롤 통과\n도구막대는 버튼을 잡고 끌어도 어디든 옮겨져요. 왼쪽·오른쪽 끝에 닿으면 바로 세로로 서요. 눈 버튼이나 ⌃⌥0으로 숨길 수 있어요.\n\n저장한 캡처·녹화 위치: ", "Highlight: a ring around the pointer and left/right click marks\nControl+scroll: up larger, down smaller (spot, then dim circle, then pointer)\nZoom: live magnifier, choose 1.5× to 5×\nPen: 3 colors and a color wheel, width slider, undo, clear\nTimer: 1 to 60 minute countdown. Type minutes; drag the clock to move it, drag its corner to resize\nCapture: select an area, then annotate, copy and save in the editor. Use ▾ for save, pin, or recording\nSpot: drag a rectangle, circle or ellipse to mark it with a red line\n\n⌃⌥1 Highlight · 2 Zoom · 3 Pen · 4 Timer · 5 Capture · 6 Spot · 0 Hide bar\nEsc: back to normal use\nHold Option: clicks pass through while drawing\nDrag the toolbar to move it. At a side edge it stands up.\n\nSaved captures and recordings: ") + storage.capturesLabel
     )
   }
   func showMessage(_ title: String, _ text: String) {

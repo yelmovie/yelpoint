@@ -411,7 +411,7 @@ extension AppController {
       if let bar = (stickers[0].contentView as? StickerView)?.bar {
         try check(
           bar.isVisible && bar.level.rawValue > overlays[0].0.level.rawValue
-            && (abs(bar.frame.maxY + 6 - stickers[0].frame.minY) < 1 || abs(bar.frame.minY - 6 - stickers[0].frame.maxY) < 1),
+            && (abs(bar.frame.maxY + 8 - stickers[0].frame.minY) < 1 || abs(bar.frame.minY - 8 - stickers[0].frame.maxY) < 1),
           "a pinned image has its button bar right next to it, above the pen layer")
       } else {
         throw DiagnosticFailure(description: "pinned image button bar")
@@ -506,30 +506,35 @@ extension AppController {
       // Captures use their own input surface, not the full-screen pen overlay.
       let captureFrame = CGRect(x: origin.x + 300, y: origin.y + 300, width: 120, height: 90)
       store(picture.cgImage(forProposedRect: nil, context: nil, hints: nil)!, scale: 1, frame: captureFrame)
-      try check(stickers.isEmpty && !pen && !penPanel.isVisible && !capturePanel.isVisible
+      try check(stickers.count == 1 && pen && capturePenOnly && !penPanel.isVisible && !capturePanel.isVisible
         && overlays.allSatisfy { $0.0.ignoresMouseEvents } && escapeKey == nil
         && NSPasteboard.general.types?.contains(.png) == true,
-        "capture copies PNG without windows, drawing mode or desktop interception")
+        "capture opens an editor ready for ink and copies PNG without desktop interception")
+      let captureEditor = stickers.last!.contentView as! StickerView
+      try check(captureEditor.bar?.contentView?.subviews.count == 7,
+        "capture editor exposes new snip, pen, text, undo, copy, save and close")
       for _ in 0..<3 {
         store(picture.cgImage(forProposedRect: nil, context: nil, hints: nil)!, scale: 1, frame: captureFrame)
       }
-      try check(stickers.isEmpty && !penPanel.isVisible && !capturePanel.isVisible,
-        "repeated capture never creates or reopens windows")
-      toggle("timer")
-      store(picture.cgImage(forProposedRect: nil, context: nil, hints: nil)!, scale: 1, frame: captureFrame)
-      try check(timerPanel.isVisible, "late capture completion preserves a newer tool panel")
+      try check(stickers.count == 4 && drawingOnCaptures,
+        "repeated snips preserve earlier images and keep drawing ready")
+      for window in stickers { removeSticker(window) }
       returnToPointer()
       hideHalo = true
       beginSelection()
       finishSelection(screen: NSScreen.main!, rect: .zero)
       try check(!hideHalo && !selecting, "cancelled replacement capture restores pointer halo")
-      toggle("pen")
-      canvas.mouseDown(with: mouse(.leftMouseDown, CGPoint(x: 20, y: 20)))
-      store(picture.cgImage(forProposedRect: nil, context: nil, hints: nil)!, scale: 1)
-      try check(canvas.activeStroke != nil && pen, "late capture leaves newer active handwriting intact")
       returnToPointer()
       clear()
-      // Pinning and annotating remain available only when explicitly requested.
+      toggle("pen")
+      canvas.mouseDown(with: mouse(.leftMouseDown, CGPoint(x: 20, y: 20)))
+      store(picture.cgImage(forProposedRect: nil, context: nil, hints: nil)!, scale: 1, activateDrawing: false)
+      try check(canvas.activeStroke != nil && pen && !capturePenOnly,
+        "late capture completion preserves newer fullscreen handwriting")
+      returnToPointer()
+      for window in stickers { removeSticker(window) }
+      clear()
+      // Capture-local input supports direct and explicitly pasted images.
       addSticker(picture, at: captureFrame)
       pen = true
       capturePenOnly = true
@@ -564,8 +569,10 @@ extension AppController {
         "copy finishes an active stroke without turning off the pen or blocking the desktop")
       for _ in 0..<3 { try check(copySticker(localInk, announce: false), "repeat copy succeeds") }
       try check(localInk.strokes.count == 2, "repeated copies never duplicate ink")
-      undo()
-      try check(localInk.strokes.count == 1 && pen, "undo works after capture copy")
+      undoCapture(localInk)
+      try check(localInk.strokes.count == 1 && pen, "local undo works after capture copy")
+      try check(undoHistory.filter { if case .sticker(let v) = $0 { return v === localInk }; return false }.count == 1,
+        "local undo removes its matching global history entry")
       localInk.mouseDown(with: imageMouse(.leftMouseDown, CGPoint(x: 40, y: 30)))
       setPassthrough(true)
       try check(localInk.activeStroke == nil && localInk.strokes.count == 2 && !drawingOnCaptures,
@@ -1013,5 +1020,59 @@ extension AppController {
     }
     try png.write(to: destination)
     print("Native view preview: \(destination.path)")
+  }
+}
+
+
+extension AppController {
+  /// Optional local end-to-end test. Never requests or changes privacy permissions.
+  func runLiveCaptureTest() {
+    guard CGPreflightScreenCaptureAccess(), let screen = NSScreen.main else {
+      print("BLOCKED: screen capture permission unavailable; no permission changed")
+      diagnosticExitCode = 2; quit(); return
+    }
+    let clipboard = (NSPasteboard.general.pasteboardItems ?? []).map { item in
+      item.types.compactMap { type in item.data(forType: type).map { (type, $0) } }
+    }
+    let sample = panel(size: CGSize(width: 360, height: 240), level: .statusBar)
+    let surface = NSView(frame: CGRect(x: 0, y: 0, width: 360, height: 240))
+    surface.wantsLayer = true
+    surface.layer?.backgroundColor = NSColor.systemTeal.cgColor
+    let label = NSTextField(labelWithString: "YelPoint · Capture test")
+    label.frame = CGRect(x: 24, y: 100, width: 310, height: 32)
+    label.font = .systemFont(ofSize: 24)
+    surface.addSubview(label); sample.contentView = surface
+    sample.setFrameOrigin(CGPoint(x: screen.visibleFrame.midX - 180, y: screen.visibleFrame.midY - 120))
+    sample.orderFrontRegardless()
+    Task { @MainActor in
+      do {
+        try await Task.sleep(nanoseconds: 500_000_000)
+        let rect = sample.frame.offsetBy(dx: -screen.frame.minX, dy: -screen.frame.minY)
+        let image = try await ScreenGrab.capture(screen: screen, rect: rect, excluding: controlWindowIDs)
+        sample.close()
+        store(image, scale: screen.backingScaleFactor)
+        guard let view = stickers.last?.contentView as? StickerView, drawingOnCaptures else {
+          throw DiagnosticFailure(description: "live capture editor missing")
+        }
+        view.addStroke(InkStroke(points: [CGPoint(x: 30, y: 30), CGPoint(x: 170, y: 80)],
+          color: .systemRed, width: 5, created: ProcessInfo.processInfo.systemUptime, expires: false))
+        guard copySticker(view, announce: false), let file = saveCapture(from: view),
+          let saved = NSImage(contentsOf: file), saved.size.width > 0 else {
+          throw DiagnosticFailure(description: "live annotated copy/save failed")
+        }
+        print("PASS: real ScreenCaptureKit capture, ready-to-draw editor, annotated clipboard and PNG save: \(file.path)")
+        for window in stickers { removeSticker(window) }
+        returnToPointer()
+      } catch {
+        sample.close(); diagnosticExitCode = 1; print("FAIL: live capture: \(error)")
+      }
+      let restored = clipboard.map { entries -> NSPasteboardItem in
+        let item = NSPasteboardItem()
+        for (type, data) in entries { item.setData(data, forType: type) }
+        return item
+      }
+      NSPasteboard.general.clearContents(); NSPasteboard.general.writeObjects(restored)
+      quit()
+    }
   }
 }

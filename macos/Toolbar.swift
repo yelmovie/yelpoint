@@ -132,7 +132,7 @@ final class DockView: NSView {
       homes[name] = b.frame
       if name == "settings" { b.setAccessibilityLabel(tr("간단 설정", "Settings")) }
       if name == "capture" {
-        b.toolTip = tr("클릭: 영역 캡처 후 바로 복사 (⌃⌥5) · 옆 ▾: 녹화·저장 메뉴", "Click: capture and copy (⌃⌥5) · ▾: recording and save menu")
+        b.toolTip = tr("클릭: 영역 캡처 후 바로 필기 (⌃⌥5) · 옆 ▾: 녹화·저장 메뉴", "Click: snip and annotate (⌃⌥5) · ▾: recording and save menu")
         b.secondaryCallback = { [weak controller] in controller?.toggle("capture") }
       }
       if name == "pen" {

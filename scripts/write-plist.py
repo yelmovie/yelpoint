@@ -4,7 +4,7 @@ with open(sys.argv[1], 'wb') as file:
     plistlib.dump({
         'CFBundleName': 'YelPoint', 'CFBundleDisplayName': 'YelPoint',
         'CFBundleIdentifier': 'studio.yelpoint.app', 'CFBundleExecutable': 'YelPoint',
-        'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': '1.0.0', 'CFBundleVersion': '1',
+        'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': '1.0.5', 'CFBundleVersion': '105',
         'CFBundleIconFile': 'YelPoint', 'LSMinimumSystemVersion': '14.0',
         'NSHighResolutionCapable': True, 'NSPrincipalClass': 'NSApplication',
         'NSScreenCaptureUsageDescription': '돋보기 확대와 화면 캡처·녹화를 위해 필요해.',

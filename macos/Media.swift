@@ -380,8 +380,8 @@ final class StickerView: NSView {
     self.image = image
     super.init(frame: CGRect(origin: .zero, size: size))
     wantsLayer = true
-    layer?.borderColor = Look.lime.cgColor
-    layer?.borderWidth = 2
+    layer?.borderColor = NSColor.white.withAlphaComponent(0.3).cgColor
+    layer?.borderWidth = 1
     let close = ActionButton(
       frame: CGRect(x: max(0, size.width - 28), y: max(0, size.height - 28), width: 24, height: 24),
       callback: onClose)
@@ -508,18 +508,16 @@ extension AppController {
     withToolsSuspended { guideScreenAccess() }
     return CGPreflightScreenCaptureAccess()
   }
-  /// A switch can look on while macOS still ties it to an older build, so the old
-  /// record goes first. macOS only applies the permission after a relaunch.
+  /// Keep existing permission records intact; only the user changes system access.
   private func guideScreenAccess() {
     NSApp.activate(ignoringOtherApps: true)
     let ask = NSAlert()
     ask.messageText = tr("화면 기록 권한이 필요해요", "Screen Recording permission needed")
     ask.informativeText =
-      tr("‘설정 열기’를 누르면 화면 기록 설정이 바로 열려요. 목록의 YelPoint 스위치를 켜 주세요. 예전에 켠 기록은 맞지 않을 수 있어서 먼저 지워 둘게요.", "Open Settings takes you to Screen Recording. Turn on the YelPoint switch in the list. Any old record that no longer matches is cleared first.")
+      tr("‘설정 열기’를 누르면 화면 기록 설정이 바로 열려요. 목록의 YelPoint 스위치를 켜 주세요. 권한을 이미 켰다면 앱을 다시 실행해 주세요.", "Open Settings takes you to Screen Recording. Turn on the YelPoint switch in the list. If it is already enabled, restart the app.")
     ask.addButton(withTitle: tr("설정 열기", "Open Settings"))
     ask.addButton(withTitle: tr("취소", "Cancel"))
     guard ask.runModal() == .alertFirstButtonReturn else { return }
-    runQuietly("/usr/bin/tccutil", ["reset", "ScreenCapture", "studio.yelpoint.app"], wait: true)
     _ = CGRequestScreenCaptureAccess()
     if let page = URL(
       string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
@@ -580,8 +578,9 @@ extension AppController {
     pulses = []
     refreshTools()
     for (_, view) in overlays { view.display() }
-    let ids = controlWindowIDs
+    let ids = controlWindowIDs.union(stickers.map { CGWindowID($0.windowNumber) })
     let generation = captureGeneration
+    let interaction = captureInteractionVersion
     Task { @MainActor [weak self] in
       try? await Task.sleep(nanoseconds: 80_000_000)
       do {
@@ -590,7 +589,8 @@ extension AppController {
         self.hideHalo = false
         self.store(
           image, scale: screen.backingScaleFactor,
-          frame: rect.offsetBy(dx: screen.frame.minX, dy: screen.frame.minY))
+          frame: rect.offsetBy(dx: screen.frame.minX, dy: screen.frame.minY),
+          activateDrawing: self.captureInteractionVersion == interaction)
       } catch {
         guard let self, self.captureGeneration == generation else { return }
         self.hideHalo = false
@@ -599,11 +599,19 @@ extension AppController {
       }
     }
   }
-  /// Copy immediately without opening a preview or entering drawing mode.
-  func store(_ image: CGImage, scale: CGFloat, frame: CGRect? = nil) {
+  /// Snip, then write directly on the capture. The desktop stays click-through.
+  func store(_ image: CGImage, scale: CGFloat, frame: CGRect? = nil, activateDrawing: Bool = true) {
     lastCapture = image
     let size = CGSize(width: CGFloat(image.width) / scale, height: CGFloat(image.height) / scale)
     let copied = ImageClipboard.write(image, size: size)
+    if activateDrawing { finishStrokes() }
+    addSticker(NSImage(cgImage: image, size: size))
+    if activateDrawing {
+      pen = true
+      capturePenOnly = true
+      passthrough = false
+    }
+    refreshTools()
     invalidateAll()
     if !copied {
       toast(tr("복사하지 못했어요. 캡처 옆 ▾에서 PNG로 저장할 수 있어요.", "Could not copy. Use ▾ beside Capture to save as PNG."))
@@ -697,16 +705,23 @@ extension AppController {
     window.contentView = nil
     window.close()
   }
-  /// 복사됨 · 저장 · 글자 · 붙여넣기 · 닫기, in a panel above the pen layer so they work while drawing.
+  /// Labelled capture tools remain clickable while annotating.
   func attachBar(to view: StickerView, in window: QuietPanel) {
     let items: [(String, String, String, (AppController, StickerView, QuietPanel) -> Void)] = [
-      (tr("복사됨", "Copied"), "checkmark", tr("이미 클립보드에 있어요. 누르면 다시 복사해요.", "Already on the clipboard. Click to copy again."), { c, v, _ in c.copySticker(v) }),
-      (tr("저장", "Save"), "square.and.arrow.down", tr("PNG로 저장", "Save as PNG"), { c, v, _ in c.saveCapture(from: v) }),
+      (tr("새 캡처", "New"), "plus.viewfinder", tr("새 영역 캡처 · ⌃⌥5", "New snip · ⌃⌥5"), { c, _, _ in c.beginSelection() }),
+      (tr("펜 설정", "Pen"), "pencil.tip", tr("펜 색과 굵기", "Pen color and width"), { c, _, _ in
+        c.finishStrokes(); c.pen = true; c.capturePenOnly = true; c.passthrough = false
+        c.togglePenOptions(); c.refreshTools()
+      }),
       (tr("글자", "Text"), "textformat", tr("그림 위에 글자 쓰기", "Type on the image"), { c, v, _ in
         v.menuPoint = CGPoint(x: 12, y: v.bounds.midY)
         v.beginNote(color: c.inkColor)
       }),
-      (tr("붙여넣기", "Paste"), "doc.on.clipboard", tr("앞에 있는 앱에 바로 붙여넣기", "Paste into the app in front"), { c, v, _ in c.pasteInto(v) }),
+      (tr("되돌리기", "Undo"), "arrow.uturn.backward", tr("이 캡처의 마지막 필기 취소", "Undo this image's last annotation"), { c, v, _ in
+        c.undoCapture(v)
+      }),
+      (tr("복사", "Copy"), "doc.on.doc", tr("필기 포함 복사 · 다른 앱에서 ⌘V", "Copy with ink · ⌘V in another app"), { c, v, _ in c.copySticker(v) }),
+      (tr("저장", "Save"), "square.and.arrow.down", tr("필기 포함 PNG 저장", "Save PNG with ink"), { c, v, _ in c.saveCapture(from: v) }),
       (tr("닫기", "Close"), "xmark", tr("이 그림 닫기", "Close this image"), { c, _, w in c.removeSticker(w) }),
     ]
     let width = CGFloat(items.count) * 82 + 8
@@ -722,7 +737,7 @@ extension AppController {
         if let self, let view, let window { action(self, view, window) }
       }
       b.toolTip = tip
-      b.selected = i == 0
+      b.selected = false
       content.addSubview(b)
     }
     bar.contentView = content
@@ -735,13 +750,13 @@ extension AppController {
     placeBar(of: window)
     bar.orderFrontRegardless()
   }
-  /// Under the image, or above it when there is no room below; kept on screen.
+  /// Snipping-style toolbar above the image, clamped to the working display.
   func placeBar(of window: NSWindow) {
     guard let view = window.contentView as? StickerView, let bar = view.bar else { return }
     let frame = window.frame
     let visible = (window.screen ?? NSScreen.main)?.visibleFrame ?? frame
-    var origin = CGPoint(x: frame.minX, y: frame.minY - bar.frame.height - 6)
-    if origin.y < visible.minY { origin.y = min(frame.maxY + 6, visible.maxY - bar.frame.height) }
+    var origin = CGPoint(x: frame.midX - bar.frame.width / 2, y: frame.maxY + 8)
+    if origin.y + bar.frame.height > visible.maxY { origin.y = max(visible.minY, frame.minY - bar.frame.height - 8) }
     origin.x = min(max(origin.x, visible.minX + 4), visible.maxX - bar.frame.width - 4)
     bar.setFrameOrigin(origin)
   }
@@ -758,6 +773,17 @@ extension AppController {
   }
   func sticker(at p: CGPoint) -> StickerView? {
     stickers.last(where: { $0.isVisible && $0.frame.contains(p) })?.contentView as? StickerView
+  }
+  func undoCapture(_ view: StickerView) {
+    view.finishStroke(); view.commitNote()
+    if view.undoLast() {
+      if let index = undoHistory.lastIndex(where: {
+        if case .sticker(let target) = $0 { return target === view }
+        return false
+      }) { undoHistory.remove(at: index) }
+      clip(view)
+    }
+    refreshTools()
   }
   func noteAdded(_ view: StickerView) {
     undoHistory.append(.sticker(view))
@@ -812,6 +838,8 @@ extension AppController {
     }
   }
   @discardableResult func saveCapture(from view: StickerView? = nil) -> URL? {
+    finishStrokes()
+    (view ?? stickers.last?.contentView as? StickerView)?.commitNote()
     var source =
       (view ?? stickers.last?.contentView as? StickerView)?.composite() ?? lastCapture
     if source == nil, let image = NSImage(pasteboard: NSPasteboard.general) {
