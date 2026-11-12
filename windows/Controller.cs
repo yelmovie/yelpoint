@@ -311,13 +311,13 @@ internal sealed class Controller:ApplicationContext {
         wait.Tick+=(s,e)=>{wait.Stop();wait.Dispose();if(Exiting)return;if(Form.ActiveForm!=null){Toast(Look.Tr("복사했어요 · 붙여넣을 곳을 클릭하고 Ctrl+V","Copied · click where it goes, then Ctrl+V"));return;}SendKeys.SendWait("^v");Toast(Look.Tr("붙여넣었어요","Pasted"));};
         wait.Start();
     }
-    // Phone Freeze explicitly asks for a fixed image to annotate; ordinary screenshots never use this path.
+    // Captures and Phone Freeze open a fixed image ready for annotation.
     void PinCapturedImage(InkWindow view,Rectangle area){
         if(lastCapture==null)return;float k=view.UiScale;int edge=Look.Px(2,k),both=Look.Px(4,k);
         AddSticker((Image)lastCapture.Clone(),new Rectangle(view.Left+area.X-edge,view.Top+area.Y-edge,area.Width+both,area.Height+both),k);
         Pen=true;CapturePen=true;RaiseOverlays();RefreshTools();
     }
-    public void FinishSelection(InkWindow view,Rectangle area,bool pinForAnnotation=false){
+    public void FinishSelection(InkWindow view,Rectangle area,bool pinForAnnotation=true){
         Selecting=false;SelectionCursor(false);pendingClicks.Clear();DirtyInk();RefreshTools();
         if(area.Width<4||area.Height<4)return;
         var controls=new Form[]{Toolbar,Penbar,Settings,TimerPanel,CaptureBar,ColorBar,SpotBar,ZoomBar,mini,halo,PhoneBar,QrBar}.Concat(StickerBars).Where(f=>f.Visible).ToArray();foreach(var f in controls)f.Hide();
@@ -326,7 +326,11 @@ internal sealed class Controller:ApplicationContext {
             image=new Bitmap(area.Width,area.Height,PixelFormat.Format32bppArgb);
             System.Threading.Thread.Sleep(80);
             // CaptureBlt keeps the layered ink and timer windows in the image.
-            using(var g=Graphics.FromImage(image))g.CopyFromScreen(view.Left+area.X,view.Top+area.Y,0,0,area.Size,CopyPixelOperation.SourceCopy|CopyPixelOperation.CaptureBlt);
+            using(var g=Graphics.FromImage(image)){
+                IntPtr screen=Native.GetDC(IntPtr.Zero),target=IntPtr.Zero;
+                try{target=g.GetHdc();if(screen==IntPtr.Zero||!RecorderNative.BitBlt(target,0,0,area.Width,area.Height,screen,view.Left+area.X,view.Top+area.Y,0x40CC0020))throw new System.ComponentModel.Win32Exception("Screen capture failed.");}
+                finally{if(target!=IntPtr.Zero)g.ReleaseHdc(target);if(screen!=IntPtr.Zero)Native.ReleaseDC(IntPtr.Zero,screen);}
+            }
             // Keep the last capture in memory even if another app has locked the clipboard.
             try{Clipboard.SetImage(image);}catch(ExternalException){copied=false;}
             if(lastCapture!=null)lastCapture.Dispose();lastCapture=image;stored=true;
@@ -367,7 +371,7 @@ internal sealed class Controller:ApplicationContext {
     public void RemoveSticker(StickerForm sticker){if(Stickers.Remove(sticker)){if(sticker.Bar!=null)sticker.Bar.Hide();sticker.Hide();Toolbar.BeginInvoke(new Action(()=>{sticker.Dispose();UpdateExclusions();}));}}
     public void SaveCapture(StickerForm from=null){
         Image image=lastCapture;bool owned=false;
-        if(from!=null){image=from.Composite();owned=true;}
+        if(from!=null){from.FinishStroke();from.FinishNote();image=from.Composite();owned=true;}
         else if(image==null&&Stickers.Count>0){image=Stickers[Stickers.Count-1].Composite();owned=true;}
         else if(image==null){try{if(Clipboard.ContainsImage()){image=Clipboard.GetImage();owned=image!=null;}}catch(ExternalException){Message(Look.Tr("클립보드를 읽지 못했어요","Could not read the clipboard"),Look.Tr("다른 앱이 클립보드를 쓰고 있을 수 있어요. 잠시 뒤 다시 눌러 주세요.","Another app may be using the clipboard. Try again in a moment."));return;}}
         if(image==null){Message(Look.Tr("저장할 캡처가 없어요","No capture to save"),Look.Tr("먼저 영역을 캡처해 주세요.","Capture an area first."));return;}

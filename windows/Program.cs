@@ -12,8 +12,8 @@ using Microsoft.Win32;
 [assembly:AssemblyDescription("Simple teaching tools: cursor highlight, magnifier and screen pen")]
 [assembly:AssemblyProduct("YelPoint")]
 [assembly:AssemblyCopyright("© yelsam.lab")]
-[assembly:AssemblyVersion("1.0.3.0")]
-[assembly:AssemblyFileVersion("1.0.3.0")]
+[assembly:AssemblyVersion("1.0.5.0")]
+[assembly:AssemblyFileVersion("1.0.5.0")]
 
 namespace YelPoint {
 internal static class Program {
